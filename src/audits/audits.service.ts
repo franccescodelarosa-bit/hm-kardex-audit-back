@@ -37,6 +37,55 @@ export class AuditsService {
 
   }
 
+  private readonly TOTAL_REQUIRED = 15;
+
+private calculateAuditStatus(
+  uploadedCount: number,
+) {
+
+  if (
+    uploadedCount >=
+    this.TOTAL_REQUIRED
+  ) {
+    return 'READY_FOR_AUDIT';
+  }
+
+  if (uploadedCount > 0) {
+    return 'IN_PROGRESS';
+  }
+
+  return 'PENDING';
+
+}
+
+private calculateProgress(
+  uploadedCount: number,
+) {
+
+  const files =
+    Math.min(
+      uploadedCount,
+      this.TOTAL_REQUIRED,
+    );
+
+  return {
+    uploadedCount: files,
+
+    progress: Math.round(
+      (
+        files /
+        this.TOTAL_REQUIRED
+      ) * 100,
+    ),
+
+    status:
+      this.calculateAuditStatus(
+        files,
+      ),
+  };
+
+}
+
 async findAll() {
 
   const audits =
@@ -44,9 +93,10 @@ async findAll() {
 
       include: {
         clients: true,
-        uploaded_files: {
+
+        _count: {
           select: {
-            id: true,
+            uploaded_files: true,
           },
         },
       },
@@ -57,35 +107,40 @@ async findAll() {
 
     });
 
-  const TOTAL_REQUIRED = 15;
-
   return audits.map(audit => {
 
-    const uploadedCount = (audit.uploaded_files.length > TOTAL_REQUIRED) ? TOTAL_REQUIRED : audit.uploaded_files.length;
-
-    const progress =
-      Math.round(
-        (uploadedCount / TOTAL_REQUIRED) * 100
+    const meta =
+      this.calculateProgress(
+        audit._count
+          .uploaded_files,
       );
 
     return {
+
       ...audit,
 
-      progress,
+      status:
+        meta.status,
 
-      uploadedCount,
+      progress:
+        meta.progress,
 
-      uploaded_files: undefined,
+      uploadedCount:
+        meta.uploadedCount,
+
     };
 
   });
 
 }
 
-async findOne(id: string) {
-    
+async findOne(
+  id: string,
+) {
+
   const audit =
     await this.prisma.audit_jobs.findUnique({
+
       where: {
         id,
       },
@@ -94,46 +149,44 @@ async findOne(id: string) {
         clients: true,
         uploaded_files: true,
       },
+
     });
 
   if (!audit) {
     return null;
   }
 
-  const totalRequired = 15;
-
-  const uploadedCount =
-    audit.uploaded_files.length;
-
-  let status = 'PENDING';
-
-  if (uploadedCount > 0) {
-    status = 'IN_PROGRESS';
-  }
-
-  if (uploadedCount >= totalRequired) {
-    status = 'READY_FOR_AUDIT';
-  }
+  const meta =
+    this.calculateProgress(
+      audit.uploaded_files.length,
+    );
 
   return JSON.parse(
     JSON.stringify(
       {
+
         ...audit,
-        status,
+
+        status:
+          meta.status,
+
         completion:
-          Math.round(
-            (
-              uploadedCount /
-              totalRequired
-            ) * 100,
-          ),
-        uploadedCount,
-        totalRequired,
+          meta.progress,
+
+        uploadedCount:
+          meta.uploadedCount,
+
+        totalRequired:
+          this.TOTAL_REQUIRED,
+
       },
+
       (_, value) =>
-        typeof value === 'bigint'
+        typeof value ===
+        'bigint'
           ? Number(value)
           : value,
+
     ),
   );
 

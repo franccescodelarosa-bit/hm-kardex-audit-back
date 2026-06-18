@@ -140,6 +140,28 @@ export class UploadsService {
         },
     });
 
+    const uploadedCount =
+        await this.prisma.uploaded_files.count({
+            where: {
+            audit_job_id:
+                dto.auditJobId,
+            },
+        });
+
+        if (uploadedCount >= 15) {
+
+        await this.prisma.audit_jobs.update({
+            where: {
+            id: dto.auditJobId,
+            },
+            data: {
+            status:
+                'READY_FOR_AUDIT',
+            },
+        });
+
+}
+
     if (!dbUser) {
     throw new Error(
         'Usuario no encontrado',
