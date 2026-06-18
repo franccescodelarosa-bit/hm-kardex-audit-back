@@ -10,9 +10,10 @@ import { CompaniesModule } from './companies/companies.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { AuditsModule } from './audits/audits.module';
 import { AccessLogsModule } from './access-logs/access-logs.module';
+import { ClientsModule } from './clients/clients.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, UsersModule, AdminModule, CompaniesModule, UploadsModule, AuditsModule, AccessLogsModule],
+  imports: [PrismaModule, AuthModule, UsersModule, AdminModule, CompaniesModule, UploadsModule, AuditsModule, AccessLogsModule, ClientsModule],
   controllers: [AppController],
   providers: [AppService],
 })

@@ -13,36 +13,35 @@ export class AuthService {
     private readonly prisma: PrismaService
   ) {}
 
-  async me(token: string) {
-    try {
-      const decoded: any =
-        jwt.decode(token);
+  async me(sub: string) {
+    const user =
+      await this.prisma.users.findFirst({
+        where: {
+          cognito_sub: sub,
+        },
+      });
 
-      const sub =
-        decoded?.sub;
-
-      if (!sub) {
-        throw new Error();
-      }
-
-      const user =
-        await this.prisma.users.findFirst({
-          where: {
-            cognito_sub: sub,
-          },
-        });
-
-      if (!user) {
-        throw new UnauthorizedException(
-          'Usuario no encontrado'
-        );
-      }
-
-      return user;
-    } catch (error) {
+    if (!user) {
       throw new UnauthorizedException(
-        'Token inválido'
+        'Usuario no encontrado',
       );
     }
+    if (
+      user &&
+      user.status === 'PENDING'
+    ) {
+      await this.prisma.users.update({
+        where: {
+          id: user.id,
+        },
+        data: {
+          status: 'ACTIVE',
+        },
+      });
+
+      user.status = 'ACTIVE';
+    }
+
+    return user;
   }
 }

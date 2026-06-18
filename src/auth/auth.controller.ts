@@ -1,37 +1,33 @@
 import {
   Controller,
   Get,
-  Headers,
-  UnauthorizedException,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
 
+import { Request } from 'express';
+
 import { AuthService } from './auth.service';
+
+import { JwtAuthGuard }
+from './guards/jwt-auth.guard';
 
 @Controller('auth')
 export class AuthController {
   constructor(
-    private readonly authService: AuthService
+    private readonly authService: AuthService,
   ) {}
 
   @Get('me')
+  @UseGuards(JwtAuthGuard)
   async me(
-    @Headers('authorization')
-    authHeader?: string
+    @Req() req: any,
   ) {
-    if (!authHeader) {
-      throw new UnauthorizedException(
-        'Token requerido'
-      );
-    }
-
-    const token =
-      authHeader.replace(
-        'Bearer ',
-        ''
-      );
+    const user =
+      req.user as any;
 
     return this.authService.me(
-      token
+      user.sub,
     );
   }
 }
