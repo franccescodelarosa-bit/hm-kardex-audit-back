@@ -24,11 +24,17 @@ export class AuditsController {
     @Body()
     createAuditDto: CreateAuditDto,
   ) {
-
     return this.auditsService.create(
       createAuditDto,
     );
+  }
 
+  @Post(':id/run')
+  runAudit(
+    @Param('id')
+    id: string,
+  ) {
+    return this.auditsService.run(id);
   }
 
   @Get()

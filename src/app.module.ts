@@ -11,9 +11,10 @@ import { UploadsModule } from './uploads/uploads.module';
 import { AuditsModule } from './audits/audits.module';
 import { AccessLogsModule } from './access-logs/access-logs.module';
 import { ClientsModule } from './clients/clients.module';
+import { AuditEngineModule } from './audit-engine/audit-engine.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, UsersModule, AdminModule, CompaniesModule, UploadsModule, AuditsModule, AccessLogsModule, ClientsModule],
+  imports: [PrismaModule, AuthModule, UsersModule, AdminModule, CompaniesModule, UploadsModule, AuditsModule, AccessLogsModule, ClientsModule, AuditEngineModule],
   controllers: [AppController],
   providers: [AppService],
 })
