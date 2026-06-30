@@ -13,10 +13,11 @@ import { AccessLogsModule } from './access-logs/access-logs.module';
 import { ClientsModule } from './clients/clients.module';
 import { AuditEngineModule } from './audit-engine/audit-engine.module';
 import { AuditResultsModule } from './audit-results/audit-results.module';
+import { ExcelService } from './excel/excel.service';
 
 @Module({
   imports: [PrismaModule, AuthModule, UsersModule, AdminModule, CompaniesModule, UploadsModule, AuditsModule, AccessLogsModule, ClientsModule, AuditEngineModule, AuditResultsModule],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, ExcelService],
 })
 export class AppModule {}
