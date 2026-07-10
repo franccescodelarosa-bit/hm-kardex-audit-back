@@ -8,6 +8,9 @@ export interface Rule004Metadata {
     supplier: string;
     document: string;
     normalizedDocument: string;
+    month: string | null;
+    duplicatedItems: number;
+    products: string;
 }
 
 export class Rule004Exporter {
@@ -21,7 +24,7 @@ export class Rule004Exporter {
 
         const worksheet = workbook.addWorksheet("RULE_004");
 
-        worksheet.mergeCells("A1:I1");
+        worksheet.mergeCells("A1:L1");
 
         worksheet.getCell("A1").value =
             "RULE_004 - Mercadería en Tránsito no Registrada en el Kardex";
@@ -38,6 +41,9 @@ export class Rule004Exporter {
         worksheet.addRow([
             "Documento",
             "Documento Normalizado",
+            "Periodo Kardex",
+            "Items Encontrados",
+            "Productos Encontrados",
             "Item",
             "Fecha Emisión",
             "Fecha Almacén",
@@ -50,13 +56,16 @@ export class Rule004Exporter {
         // Anchos
         worksheet.getColumn(1).width = 22;
         worksheet.getColumn(2).width = 24;
-        worksheet.getColumn(3).width = 15;
+        worksheet.getColumn(3).width = 12;
         worksheet.getColumn(4).width = 18;
-        worksheet.getColumn(5).width = 18;
-        worksheet.getColumn(6).width = 18;
-        worksheet.getColumn(7).width = 40;
-        worksheet.getColumn(8).width = 55;
-        worksheet.getColumn(9).width = 55;
+        worksheet.getColumn(5).width = 60;
+        worksheet.getColumn(6).width = 15;
+        worksheet.getColumn(7).width = 18;
+        worksheet.getColumn(8).width = 18;
+        worksheet.getColumn(9).width = 18;
+        worksheet.getColumn(10).width = 40;
+        worksheet.getColumn(11).width = 55;
+        worksheet.getColumn(12).width = 55;
 
         // Datos
         for (const result of results) {
@@ -66,6 +75,9 @@ export class Rule004Exporter {
             worksheet.addRow([
                 metadata.document,
                 metadata.normalizedDocument,
+                metadata.month,
+                metadata.duplicatedItems,
+                metadata.products,
                 metadata.transitItem,
                 metadata.issueDate,
                 metadata.warehouseDate,
@@ -83,10 +95,9 @@ export class Rule004Exporter {
                 ySplit: 3
             }
         ];
-
         worksheet.autoFilter = {
             from: "A3",
-            to: "I3"
+            to: "L3"
         };
 
         return workbook;

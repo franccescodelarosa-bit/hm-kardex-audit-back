@@ -2,6 +2,7 @@ import ExcelJS from "exceljs";
 
 export interface Rule008Metadata {
     source: string;
+    month: string;
 }
 
 export class Rule008Exporter {
@@ -15,7 +16,7 @@ export class Rule008Exporter {
 
         const worksheet = workbook.addWorksheet("RULE_008");
 
-        worksheet.mergeCells("A1:E1");
+        worksheet.mergeCells("A1:F1");
 
         worksheet.getCell("A1").value =
             "RULE_008 - Productos No Encontrados en el Maestro";
@@ -31,6 +32,7 @@ export class Rule008Exporter {
         // Cabeceras
         worksheet.addRow([
             "Origen",
+            "Periodo",
             "Código",
             "Producto",
             "Descripción",
@@ -39,10 +41,11 @@ export class Rule008Exporter {
 
         // Anchos
         worksheet.getColumn(1).width = 18;
-        worksheet.getColumn(2).width = 20;
-        worksheet.getColumn(3).width = 45;
-        worksheet.getColumn(4).width = 60;
+        worksheet.getColumn(2).width = 12;
+        worksheet.getColumn(3).width = 20;
+        worksheet.getColumn(4).width = 45;
         worksheet.getColumn(5).width = 60;
+        worksheet.getColumn(6).width = 60;
 
         // Datos
         for (const result of results) {
@@ -51,6 +54,7 @@ export class Rule008Exporter {
 
             worksheet.addRow([
                 metadata.source,
+                metadata.month,
                 result.product_code,
                 result.product_name,
                 result.description,
@@ -68,7 +72,7 @@ export class Rule008Exporter {
 
         worksheet.autoFilter = {
             from: "A3",
-            to: "E3"
+            to: "F3"
         };
 
         return workbook;
