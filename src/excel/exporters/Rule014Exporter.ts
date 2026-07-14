@@ -1,8 +1,7 @@
 import ExcelJS from "exceljs";
 
-export interface Rule013Metadata {
+export interface Rule014Metadata {
     month: number;
-    normalizedCode: string;
 
     initialBalance: {
         quantity: number;
@@ -42,11 +41,13 @@ export interface Rule013Metadata {
         totalCost: number;
     };
 
+    productCount: number;
     movementCount: number;
+
     differences: string[];
 }
 
-export class Rule013Exporter {
+export class Rule014Exporter {
 
     async export(results: any[]) {
 
@@ -55,7 +56,8 @@ export class Rule013Exporter {
         workbook.creator = "HM Kardex Audit";
         workbook.created = new Date();
 
-        const worksheet = workbook.addWorksheet("RULE_013");
+        const worksheet =
+            workbook.addWorksheet("RULE_014");
 
         /*
          * ============================================================
@@ -66,7 +68,7 @@ export class Rule013Exporter {
         worksheet.mergeCells("A1:R1");
 
         worksheet.getCell("A1").value =
-            "RULE_013 - Validación de Sumatorias Mensuales";
+            "RULE_014 - Validación Consolidada de Sumatorias Mensuales";
 
         worksheet.getCell("A1").font = {
             bold: true,
@@ -83,31 +85,32 @@ export class Rule013Exporter {
          */
 
         worksheet.addRow([
-            "Código",                                      // A
-            "Producto",                                    // B
-            "Mes",                                         // C
+            "Mes",                                         // A
 
-            "Saldo Inicial - Unidades",                     // D
-            "Saldo Inicial - Costo Valorizado",             // E
+            "Saldo Inicial - Unidades",                    // B
+            "Saldo Inicial - Costo Valorizado",            // C
 
-            "Suma Entradas - Unidades",                     // F
-            "Suma Entradas - Costo Valorizado",             // G
+            "Suma Entradas - Unidades",                    // D
+            "Suma Entradas - Costo Valorizado",            // E
 
-            "Suma Salidas - Unidades",                      // H
-            "Suma Salidas - Costo Valorizado",              // I
+            "Suma Salidas - Unidades",                     // F
+            "Suma Salidas - Costo Valorizado",             // G
 
-            "Saldo Final Esperado - Unidades",              // J
-            "Costo Valorizado Calculado",                   // K
+            "Saldo Final Esperado - Unidades",             // H
+            "Costo Valorizado Calculado",                  // I
 
-            "Límite Inferior Costo (97.5%)",                // L
-            "Límite Superior Costo (102.5%)",               // M
+            "Límite Inferior Costo (97.5%)",               // J
+            "Límite Superior Costo (102.5%)",              // K
 
-            "Saldo Final Real - Unidades",                  // N
-            "Saldo Final Real - Costo Valorizado",          // O
+            "Saldo Final Real - Unidades",                 // L
+            "Saldo Final Real - Costo Valorizado",         // M
 
-            "Diferencias",                                  // P
-            "Descripción",                                  // Q
-            "Recomendación"                                 // R
+            "Cantidad de Productos",                       // N
+            "Cantidad de Movimientos",                     // O
+
+            "Diferencias",                                 // P
+            "Descripción",                                 // Q
+            "Recomendación"                                // R
         ]);
 
         /*
@@ -116,29 +119,30 @@ export class Rule013Exporter {
          * ============================================================
          */
 
-        worksheet.getColumn(1).width = 18;  // Código
-        worksheet.getColumn(2).width = 45;  // Producto
-        worksheet.getColumn(3).width = 10;  // Mes
+        worksheet.getColumn(1).width = 12;  // Mes
 
-        worksheet.getColumn(4).width = 25;  // Saldo inicial unidades
-        worksheet.getColumn(5).width = 32;  // Saldo inicial costo
+        worksheet.getColumn(2).width = 25;  // Inicial unidades
+        worksheet.getColumn(3).width = 32;  // Inicial costo
 
-        worksheet.getColumn(6).width = 25;  // Entradas unidades
-        worksheet.getColumn(7).width = 32;  // Entradas costo
+        worksheet.getColumn(4).width = 25;  // Entradas unidades
+        worksheet.getColumn(5).width = 32;  // Entradas costo
 
-        worksheet.getColumn(8).width = 25;  // Salidas unidades
-        worksheet.getColumn(9).width = 32;  // Salidas costo
+        worksheet.getColumn(6).width = 25;  // Salidas unidades
+        worksheet.getColumn(7).width = 32;  // Salidas costo
 
-        worksheet.getColumn(10).width = 32; // Esperado unidades
-        worksheet.getColumn(11).width = 30; // Costo calculado
+        worksheet.getColumn(8).width = 32;  // Esperado unidades
+        worksheet.getColumn(9).width = 30;  // Costo calculado
 
-        worksheet.getColumn(12).width = 32; // 97.5%
-        worksheet.getColumn(13).width = 32; // 102.5%
+        worksheet.getColumn(10).width = 32; // Límite inferior
+        worksheet.getColumn(11).width = 32; // Límite superior
 
-        worksheet.getColumn(14).width = 28; // Real unidades
-        worksheet.getColumn(15).width = 35; // Real costo
+        worksheet.getColumn(12).width = 28; // Real unidades
+        worksheet.getColumn(13).width = 35; // Real costo
 
-        worksheet.getColumn(16).width = 40; // Diferencias
+        worksheet.getColumn(14).width = 24; // Productos
+        worksheet.getColumn(15).width = 26; // Movimientos
+
+        worksheet.getColumn(16).width = 45; // Diferencias
         worksheet.getColumn(17).width = 70; // Descripción
         worksheet.getColumn(18).width = 70; // Recomendación
 
@@ -151,45 +155,35 @@ export class Rule013Exporter {
         for (const result of results) {
 
             const metadata =
-                result.metadata as Rule013Metadata;
+                result.metadata as Rule014Metadata;
 
             worksheet.addRow([
+
                 /*
-                 * PRODUCTO
+                 * MES CONSOLIDADO
                  */
-                result.product_code,
-                result.product_name,
                 metadata.month,
 
                 /*
-                 * SALDO INICIAL
-                 *
-                 * Se muestra separado.
-                 * NO está mezclado con las entradas.
+                 * SALDO INICIAL CONSOLIDADO
                  */
                 metadata.initialBalance.quantity,
                 metadata.initialBalance.totalCost,
 
                 /*
-                 * SUMA REAL DE ENTRADAS
+                 * SUMA DE TODAS LAS ENTRADAS DEL MES
                  */
                 metadata.totals.entry.quantity,
                 metadata.totals.entry.totalCost,
 
                 /*
-                 * SUMA REAL DE SALIDAS
+                 * SUMA DE TODAS LAS SALIDAS DEL MES
                  */
                 metadata.totals.exit.quantity,
                 metadata.totals.exit.totalCost,
 
                 /*
                  * RESULTADO CALCULADO
-                 *
-                 * Cantidad:
-                 * Inicial + Entradas - Salidas
-                 *
-                 * Costo:
-                 * Inicial + Entradas - Salidas
                  */
                 metadata.expectedFinalBalance.quantity,
                 metadata.expectedFinalBalance.totalCost,
@@ -201,10 +195,16 @@ export class Rule013Exporter {
                 metadata.costTolerance.upperLimit,
 
                 /*
-                 * SALDO FINAL REAL DEL KARDEX
+                 * SALDO FINAL REAL CONSOLIDADO
                  */
                 metadata.actualFinalBalance.quantity,
                 metadata.actualFinalBalance.totalCost,
+
+                /*
+                 * INFORMACIÓN DEL CONSOLIDADO
+                 */
+                metadata.productCount,
+                metadata.movementCount,
 
                 /*
                  * RESULTADO DE LA VALIDACIÓN
@@ -221,15 +221,21 @@ export class Rule013Exporter {
          * FORMATO NUMÉRICO
          * ============================================================
          *
-         * Columnas D:O contienen valores numéricos.
+         * B:M son cantidades y costos.
          */
 
-        for (let column = 4; column <= 15; column++) {
+        for (let column = 2; column <= 13; column++) {
 
             worksheet
                 .getColumn(column)
                 .numFmt = "#,##0.00";
         }
+
+        /*
+         * Productos y movimientos son enteros.
+         */
+        worksheet.getColumn(14).numFmt = "#,##0";
+        worksheet.getColumn(15).numFmt = "#,##0";
 
         /*
          * ============================================================
@@ -250,7 +256,7 @@ export class Rule013Exporter {
             wrapText: true
         };
 
-        headerRow.height = 45;
+        headerRow.height = 50;
 
         /*
          * ============================================================
@@ -288,7 +294,7 @@ export class Rule013Exporter {
 
         /*
          * ============================================================
-         * FILTROS
+         * FILTRO
          * ============================================================
          */
 

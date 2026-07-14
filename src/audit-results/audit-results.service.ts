@@ -14,6 +14,7 @@ import { Rule010Exporter } from '../excel/exporters/Rule010Exporter';
 import { Rule011Exporter } from '../excel/exporters/Rule011Exporter';
 import { Rule012Exporter } from '../excel/exporters/Rule012Exporter';
 import { Rule013Exporter } from '../excel/exporters/Rule013Exporter';
+import { Rule014Exporter } from '../excel/exporters/Rule014Exporter';
 
 
 @Injectable()
@@ -86,6 +87,9 @@ export class AuditResultsService {
             case "RULE_013":
                 const exporter13 = new Rule013Exporter();
                 return exporter13.export(rows); 
+            case "RULE_014":
+                const exporter14 = new Rule014Exporter();
+                return exporter14.export(rows); 
             default:
                 throw new BadRequestException(
                     `Exportador no implementado para la regla ${rows[0].audit_rules!.code}`
