@@ -72,26 +72,32 @@ export class AuditsService {
 
   async findAll() {
     const audits = await this.prisma.audit_jobs.findMany({
-      include: {
-        clients: true,
-        _count: {
-          select: {
-            uploaded_files: true,
-          },
+        include: {
+            clients: true,
+            _count: {
+                select: {
+                    uploaded_files: true
+                }
+            }
         },
-      },
-      orderBy: {
-        created_at: 'desc',
-      },
+        orderBy: {
+            created_at: "desc"
+        }
     });
     return audits.map(audit => {
-      const meta = this.calculateProgress( audit._count.uploaded_files);
-      return {
-        ...audit,
-        status: audit.status,
-        progress: meta.progress,
-        uploadedCount: meta.uploadedCount,
-      };
+        const meta = this.calculateProgress(
+            audit._count.uploaded_files
+        );
+        return {
+            ...audit,
+            status: audit.status,
+            progress: meta.progress,
+            uploadedCount: meta.uploadedCount,
+            validationStatus: audit.validation_status,
+            responsible: audit.responsible,
+            regularizationDate: audit.regularization_date,
+            observations: audit.observations
+        };
     });
   }
 

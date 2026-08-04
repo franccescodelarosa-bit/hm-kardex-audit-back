@@ -1,7 +1,9 @@
 import {
     Controller,
     Get,
+    Put,
     Param,
+    Body,
     Query,
     Res
 } from "@nestjs/common";
@@ -9,6 +11,7 @@ import type { Response } from "express";
 
 import { AuditResultsService } from "./audit-results.service";
 import { FindingsQueryDto } from "./dto/findings-query.dto";
+import { UpdateAuditFollowUpDto } from './dto/update-audit.dto';
 
 @Controller("auditsresult")
 export class AuditResultsController {
@@ -51,13 +54,22 @@ export class AuditResultsController {
         return this.service.getFinding(id);
     }
 
+    @Put(":id/follow-up")
+    putAuditResult(
+        @Param("id") id: string,
+        @Body("dto") dto: UpdateAuditFollowUpDto,
+    ) {
+        console.log(dto);
+        return this.service.putAuditResult(id, dto);
+    }
+
     @Get(":id/rules/:ruleId/excel")
     async getExcel(
         @Param("id") auditJobId: string,
         @Param("ruleId") ruleId: string,
         @Res({ passthrough: true }) res: Response
     ) {
-
+        console.log("CONTROLLER");
         const workbook = await this.service.getExcel(
             auditJobId,
             ruleId

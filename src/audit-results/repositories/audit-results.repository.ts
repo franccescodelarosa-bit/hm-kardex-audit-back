@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { FindingsQueryDto } from '../dto/findings-query.dto';
+import { UpdateAuditFollowUpDto } from '../dto/update-audit.dto';
 
 @Injectable()
 export class AuditResultsRepository {
@@ -10,25 +11,30 @@ export class AuditResultsRepository {
     ) {}
     async getAudits() {
         const audits = await this.prisma.audit_jobs.findMany({
-            include:{
-                clients:true
+            include: {
+                clients: true
             },
-            orderBy:{
-                created_at:'desc'
+            orderBy: {
+                created_at: "desc"
             }
         });
-        return audits.map(audit=>{
-            return{
-                id:audit.id,
+        return audits.map(audit => {
+            return {
+                id: audit.id,
                 client: {
                     id: audit.clients.id,
                     businessName: audit.clients.business_name,
                     ruc: audit.clients.ruc
                 },
-                year:audit.year,
-                status:audit.status,
-                createdAt:audit.created_at,
-                completedAt:audit.completed_at
+                year: audit.year,
+                status: audit.status,
+                createdAt: audit.created_at,
+                completedAt: audit.completed_at,
+                validationStatus: audit.validation_status,
+                responsible: audit.responsible,
+                regularizationDate: audit.regularization_date,
+                correctiveAction: audit.corrective_action,
+                observations: audit.observations
             };
         });
     }
@@ -38,93 +44,129 @@ export class AuditResultsRepository {
                 id: auditJobId
             },
             include: {
-
                 clients: true,
-
                 audit_results: {
-
                     include: {
-
                         audit_rules: true
-
                     }
-
                 }
-
             }
         });
         if (!audit) {
             return null;
         }
-        const high = audit.audit_results.filter(x => x.audit_rules?.risk_level === 'HIGH').length;
-        const medium = audit.audit_results.filter(x => x.audit_rules?.risk_level === 'MEDIUM').length;
-        const low = audit.audit_results.filter(x => x.audit_rules?.risk_level === 'LOW').length;
+        const high = audit.audit_results.filter(x => x.audit_rules?.risk_level === 'CRITICO').length;
+        const medium = audit.audit_results.filter(x => x.audit_rules?.risk_level === 'ALTO').length;
+        const low = audit.audit_results.filter(x => x.audit_rules?.risk_level === 'MEDIO').length;
         const topRules = new Map<string, any>();
+        const TOTAL_RULES = 14;
+        const affectedProducts = new Set(
+            audit.audit_results
+                .map(x => x.product_code)
+                .filter(Boolean)
+        ).size;
+        let economicImpact = 0;
+        let generalStatus = "CON_OBSERVACIONES";
         for (const finding of audit.audit_results) {
-
             if (!finding.audit_rules) continue;
-
             const id = finding.audit_rules.id;
-
             if (!topRules.has(id)) {
-
                 topRules.set(id, {
-
                     id,
-
                     code: finding.audit_rules.code,
-
                     name: finding.audit_rules.name,
-
                     riskLevel: finding.audit_rules.risk_level,
-
                     count: 0
-
                 });
-
             }
-
             topRules.get(id).count++;
-
-        }
+            const metadata: any = finding.metadata ?? {};
+            switch (finding.audit_rules?.code) {
+                case "RULE_001":
+                    economicImpact += Math.abs(
+                        Number(metadata.inventoryTotalCost ?? 0) -
+                        Number(metadata.kardexTotalCost ?? 0)
+                    );
+                    break;
+                case "RULE_002":
+                case "RULE_003":
+                case "RULE_013":
+                case "RULE_014":
+                    economicImpact += Math.abs(
+                        Number(
+                            metadata?.difference?.totalCost ??
+                            metadata?.difference ??
+                            0
+                        )
+                    );
+                    break;
+                case "RULE_012":
+                    economicImpact += Math.abs(
+                        Number(metadata.difference ?? 0)
+                    );
+                    break;
+            }
+            economicImpact = Number(
+                economicImpact.toFixed(2)
+            );
+        }        
+        const failedRules = topRules.size;
+        const passedRules = TOTAL_RULES - failedRules;
+        const compliance = Number(
+            ((passedRules / TOTAL_RULES) * 100).toFixed(2)
+        );
+        
+            const hasCriticalRule = Array
+                .from(topRules.values())
+                .some(x =>
+                    x.riskLevel === "CRITICO"
+                );
+                if (
+                    hasCriticalRule ||
+                    compliance < 80
+                ) {
+                    generalStatus = "CRITICO";
+                }
+                else if (
+                    compliance >= 95 &&
+                    economicImpact === 0
+                ) {
+                    generalStatus = "APROBADO";
+                }
         return {
-
             audit: {
-
                 id: audit.id,
-
                 client: audit.clients.business_name,
-
                 year: audit.year,
-
                 status: audit.status,
-
                 createdAt: audit.created_at,
-
                 completedAt: audit.completed_at
-
             },
-
             summary: {
-
-                totalFindings: audit.audit_results.length
-
+                totalFindings: audit.audit_results.length,
+                executedRules: TOTAL_RULES,
+                passedRules,
+                failedRules,
+                compliance,
+                affectedProducts,
+                economicImpact,
+                generalStatus
             },
-
+            followUp: {
+                validationStatus: audit.validation_status,
+                regularizationDate: audit.regularization_date,
+                correctiveAction: audit.corrective_action,
+                observations: audit.observations,
+                responsible: audit.responsible
+            },
             riskLevels: {
-
                 high,
-
                 medium,
-
                 low
-
             },
-
             topRules: Array
                 .from(topRules.values())
                 .sort((a, b) => b.count - a.count)
-
         };
     }
     async getRules(auditJobId: string) {
@@ -256,6 +298,22 @@ export class AuditResultsRepository {
         };
 
     }
+    async putAuditResult(id: string, dto: UpdateAuditFollowUpDto ) {
+        return this.prisma.audit_jobs.update({
+            where: {
+                id
+            },
+            data: {
+                validation_status: dto.validationStatus,
+                regularization_date: dto.regularizationDate
+                ? new Date(dto.regularizationDate)
+                : null,
+                corrective_action: dto.correctiveAction,
+                observations: dto.observations,
+                responsible: dto.responsible
+            }
+        });
+    }
     async getFinding(id: string) {
         const finding = await this.prisma.audit_results.findUnique({
             where: {
@@ -286,6 +344,20 @@ export class AuditResultsRepository {
         };
     }    
     async getExcel(auditJobId: string, ruleId: string) {
+        const auditJob = await this.prisma.audit_jobs.findUnique({
+            where: {
+                id: auditJobId
+            },
+            select: {
+                year: true,
+                clients: {
+                    select: {
+                        business_name: true,
+                        ruc: true
+                    }
+                }
+            }
+        });
         const rows = await this.prisma.audit_results.findMany({
             where: {
                 audit_job_id: auditJobId,
@@ -305,17 +377,6 @@ export class AuditResultsRepository {
                         code: true,
                         name: true
                     }
-                },
-                audit_jobs: {
-                    select: {
-                        year: true,
-                        clients: {
-                            select: {
-                                business_name: true,
-                                ruc: true
-                            }
-                        }
-                    }
                 }
             },
             orderBy: [
@@ -327,7 +388,8 @@ export class AuditResultsRepository {
                 }
             ]
         });
-        if (rows.length) {
+        console.log(rows);
+        if (!rows.length) {
             return {
                 header: null,
                 rows: []
@@ -336,9 +398,9 @@ export class AuditResultsRepository {
         const first = rows[0];
         return {
             header: {
-                companyName: first.audit_jobs.clients.business_name,
-                ruc: first.audit_jobs.clients.ruc ?? "",
-                year: first.audit_jobs.year
+                companyName: auditJob!.clients.business_name,
+                ruc: auditJob!.clients.ruc ?? "",
+                year: auditJob!.year
             },
             rows
         };

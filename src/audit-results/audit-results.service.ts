@@ -2,6 +2,7 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { AuditResultsRepository } from './repositories/audit-results.repository';
 import { ReportHeader } from '../excel/exporters/base/ReportHeader';
 import { FindingsQueryDto } from './dto/findings-query.dto';
+import { UpdateAuditFollowUpDto } from './dto/update-audit.dto';
 import { Rule001Exporter } from '../excel/exporters/Rule001Exporter';
 import { Rule002Exporter } from '../excel/exporters/Rule002Exporter';
 import { Rule003Exporter } from '../excel/exporters/Rule003Exporter';
@@ -42,13 +43,13 @@ export class AuditResultsService {
     async getFinding(id: string) {
         return this.repository.getFinding(id);
     }
+    async putAuditResult(id: string, dto: UpdateAuditFollowUpDto) {
+        return this.repository.putAuditResult(id, dto);
+    }
     async getExcel(auditJobId: string, ruleId: string){
+        console.log("miau");
         const {header, rows} = await this.repository.getExcel(auditJobId, ruleId);
-        if (!rows.length) {
-            throw new BadRequestException(
-                "No existen resultados para la regla."
-            );
-        }
+        console.log(header, rows);
         if (!rows.length) {
             throw new BadRequestException("No existen resultados para la regla.");
         }
