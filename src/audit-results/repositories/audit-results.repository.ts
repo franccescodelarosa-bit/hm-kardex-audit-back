@@ -286,7 +286,7 @@ export class AuditResultsRepository {
         };
     }    
     async getExcel(auditJobId: string, ruleId: string) {
-        return this.prisma.audit_results.findMany({
+        const rows = await this.prisma.audit_results.findMany({
             where: {
                 audit_job_id: auditJobId,
                 rule_id: ruleId
@@ -305,6 +305,17 @@ export class AuditResultsRepository {
                         code: true,
                         name: true
                     }
+                },
+                audit_jobs: {
+                    select: {
+                        year: true,
+                        clients: {
+                            select: {
+                                business_name: true,
+                                ruc: true
+                            }
+                        }
+                    }
                 }
             },
             orderBy: [
@@ -316,5 +327,20 @@ export class AuditResultsRepository {
                 }
             ]
         });
+        if (rows.length) {
+            return {
+                header: null,
+                rows: []
+            };
+        }
+        const first = rows[0];
+        return {
+            header: {
+                companyName: first.audit_jobs.clients.business_name,
+                ruc: first.audit_jobs.clients.ruc ?? "",
+                year: first.audit_jobs.year
+            },
+            rows
+        };
     }
 }

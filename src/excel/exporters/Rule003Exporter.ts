@@ -1,5 +1,10 @@
 import ExcelJS from "exceljs";
 
+import { BaseExcelExporter } from "./base/BaseExcelExporter";
+import { ReportHeader } from "./base/ReportHeader";
+import { AuditFindingRow } from "./base/AuditFindingRow";
+import { DateUtils } from "../helpers/dateutils";
+
 export interface Rule003Metadata {
     fromIndex: number;
     toIndex: number;
@@ -15,104 +20,108 @@ export interface Rule003Metadata {
     };
     differences: string[];
 }
-
-export class Rule003Exporter {
-
-    async export(results: any[]) {
-
+export class Rule003Exporter extends BaseExcelExporter {
+    async export(
+        results: any[],
+        header: ReportHeader
+    ) {
         const workbook = new ExcelJS.Workbook();
-
         workbook.creator = "HM Kardex Audit";
         workbook.created = new Date();
-
         const worksheet = workbook.addWorksheet("RULE_003");
-
-        worksheet.mergeCells("A1:O1");
-
-        worksheet.getCell("A1").value =
-            "RULE_003 - Validación de Continuidad de Costos";
-
-        worksheet.getCell("A1").font = {
-            bold: true,
-            size: 16
-        };
-
-        worksheet.addRow([]);
-
-        worksheet.addRow([
-            "Código",
-            "Producto",
-            "Mes Cierre",
-            "Mes Inicio",
-            "Cantidad Final",
-            "Cantidad Inicial",
-            "Costo Unitario Final",
-            "Costo Unitario Inicial",
-            "Dif. Costo Unitario",
-            "Costo Total Final",
-            "Costo Total Inicial",
-            "Dif. Costo Total",
-            "Campos con Diferencia",
-            "Descripción",
-            "Recomendación"
-        ]);
-
-        worksheet.getColumn(1).width = 18;
-        worksheet.getColumn(2).width = 40;
-        worksheet.getColumn(3).width = 12;
-        worksheet.getColumn(4).width = 12;
-        worksheet.getColumn(5).width = 18;
-        worksheet.getColumn(6).width = 18;
-        worksheet.getColumn(7).width = 20;
-        worksheet.getColumn(8).width = 20;
-        worksheet.getColumn(9).width = 22;
-        worksheet.getColumn(10).width = 20;
-        worksheet.getColumn(11).width = 20;
-        worksheet.getColumn(12).width = 22;
-        worksheet.getColumn(13).width = 35;
-        worksheet.getColumn(14).width = 50;
-        worksheet.getColumn(15).width = 50;
-
-        for (const result of results) {
-
-            const metadata = result.metadata as Rule003Metadata;
-
-            worksheet.addRow([
-                result.product_code,
-                result.product_name,
-                metadata.fromIndex,
-                metadata.toIndex,
-                metadata.finalBalance.quantity,
-                metadata.initialBalance.quantity,
-                metadata.finalBalance.unitCost,
-                metadata.initialBalance.unitCost,
-                metadata.finalBalance.unitCost -
-                    metadata.initialBalance.unitCost,
-                metadata.finalBalance.totalCost,
-                metadata.initialBalance.totalCost,
-                metadata.finalBalance.totalCost -
-                    metadata.initialBalance.totalCost,
-                metadata.differences.join(", "),
-                result.description,
-                result.recommendation
-            ]);
-
-        }
-
+        this.writeHeader(
+            worksheet,
+            "RULE_003 - Validación de Continuidad de Costos",
+            header,
+            "J"
+        );
+        this.writeTableHeader(worksheet);
+        const findings = this.buildFindings(results);
+        this.writeRows(
+            worksheet,
+            findings
+        );
         worksheet.views = [
             {
                 state: "frozen",
-                ySplit: 3
+                ySplit: 4
             }
         ];
-
         worksheet.autoFilter = {
-            from: "A3",
-            to: "O3"
+            from: "A4",
+            to: "J4"
         };
-
         return workbook;
-
     }
 
+    private buildFindings(results: any[]): AuditFindingRow[] {
+        const rows: AuditFindingRow[] = [];
+        for (const result of results) {
+            const metadata = result.metadata as Rule003Metadata;
+            // COSTO UNITARIO
+            rows.push({
+                period:
+                    `${DateUtils.monthName(metadata.fromIndex)} → ${DateUtils.monthName(metadata.toIndex)}`,
+                productCode: result.product_code,
+                productDescription: result.product_name,
+                inconsistencyType: "Continuidad de Costo Unitario",
+                expectedValue: metadata.finalBalance.unitCost,
+                foundValue: metadata.initialBalance.unitCost,
+                difference:
+                    metadata.finalBalance.unitCost -
+                    metadata.initialBalance.unitCost,
+                differencePercent:
+                    metadata.finalBalance.unitCost === 0
+                        ? 0
+                        : Math.abs(
+                            (
+                                metadata.finalBalance.unitCost -
+                                metadata.initialBalance.unitCost
+                            ) /
+                            metadata.finalBalance.unitCost
+                        ) * 100,
+                riskLevel: result.risk_level,
+                traceability: [
+                    `Mes Cierre: ${DateUtils.monthName(metadata.fromIndex)}`,
+                    `Mes Inicio: ${DateUtils.monthName(metadata.toIndex)}`,
+                    `Cantidad Final: ${metadata.finalBalance.quantity}`,
+                    `Cantidad Inicial: ${metadata.initialBalance.quantity}`,
+                    `Campos con diferencia: ${metadata.differences.join(", ")}`
+                ].join("\n")
+            });
+
+            // COSTO TOTAL
+            rows.push({
+                period:
+                    `${DateUtils.monthName(metadata.fromIndex)} → ${DateUtils.monthName(metadata.toIndex)}`,
+                productCode: result.product_code,
+                productDescription: result.product_name,
+                inconsistencyType: "Continuidad de Costo Total",
+                expectedValue: metadata.finalBalance.totalCost,
+                foundValue: metadata.initialBalance.totalCost,
+                difference:
+                    metadata.finalBalance.totalCost -
+                    metadata.initialBalance.totalCost,
+                differencePercent:
+                    metadata.finalBalance.totalCost === 0
+                        ? 0
+                        : Math.abs(
+                            (
+                                metadata.finalBalance.totalCost -
+                                metadata.initialBalance.totalCost
+                            ) /
+                            metadata.finalBalance.totalCost
+                        ) * 100,
+                riskLevel: result.risk_level,
+                traceability: [
+                    `Mes Cierre: ${DateUtils.monthName(metadata.fromIndex)}`,
+                    `Mes Inicio: ${DateUtils.monthName(metadata.toIndex)}`,
+                    `Cantidad Final: ${metadata.finalBalance.quantity}`,
+                    `Cantidad Inicial: ${metadata.initialBalance.quantity}`,
+                    `Campos con diferencia: ${metadata.differences.join(", ")}`
+                ].join("\n")
+            });
+        }
+        return rows;
+    }
 }

@@ -1,5 +1,10 @@
 import ExcelJS from "exceljs";
 
+import { BaseExcelExporter } from "./base/BaseExcelExporter";
+import { ReportHeader } from "./base/ReportHeader";
+import { AuditFindingRow } from "./base/AuditFindingRow";
+import { DateUtils } from "../helpers/dateutils";
+
 export interface Rule012Metadata {
     issueDate: string;
     warehouseDate: string;
@@ -11,99 +16,74 @@ export interface Rule012Metadata {
     kardexAmount: number;
     difference: number;
     movements: number;
+    month?: number;
     transitItem: string;
 }
 
-export class Rule012Exporter {
-
-    async export(results: any[]) {
-
+export class Rule012Exporter extends BaseExcelExporter {
+    async export(
+        results: any[],
+        header: ReportHeader
+    ) {
         const workbook = new ExcelJS.Workbook();
-
         workbook.creator = "HM Kardex Audit";
         workbook.created = new Date();
-
         const worksheet = workbook.addWorksheet("RULE_012");
-
-        worksheet.mergeCells("A1:M1");
-
-        worksheet.getCell("A1").value =
-            "RULE_012 - Validación del Monto de Mercadería en Tránsito vs Kardex";
-
-        worksheet.getCell("A1").font = {
-            bold: true,
-            size: 16
-        };
-
-        // Espacio
-        worksheet.addRow([]);
-
-        // Cabeceras
-        worksheet.addRow([
-            "Fecha de Emisión",
-            "Fecha de Ingreso a Almacén",
-            "RUC Proveedor",
-            "Proveedor",
-            "Documento",
-            "Documento Normalizado",
-            "Monto Operación",
-            "Monto Registrado en Kardex",
-            "Diferencia",
-            "Movimientos Encontrados",
-            "Ítem Tránsito",
-            "Descripción",
-            "Recomendación"
-        ]);
-
-        // Anchos
-        worksheet.getColumn(1).width = 18;
-        worksheet.getColumn(2).width = 22;
-        worksheet.getColumn(3).width = 18;
-        worksheet.getColumn(4).width = 35;
-        worksheet.getColumn(5).width = 25;
-        worksheet.getColumn(6).width = 25;
-        worksheet.getColumn(7).width = 22;
-        worksheet.getColumn(8).width = 28;
-        worksheet.getColumn(9).width = 18;
-        worksheet.getColumn(10).width = 25;
-        worksheet.getColumn(11).width = 18;
-        worksheet.getColumn(12).width = 55;
-        worksheet.getColumn(13).width = 55;
-
-        // Datos
-        for (const result of results) {
-
-            const metadata = result.metadata as Rule012Metadata;
-
-            worksheet.addRow([
-                metadata.issueDate,
-                metadata.warehouseDate,
-                metadata.supplierRuc,
-                metadata.supplier,
-                metadata.document,
-                metadata.normalizedDocument,
-                metadata.transitAmount,
-                metadata.kardexAmount,
-                metadata.difference,
-                metadata.movements,
-                metadata.transitItem,
-                result.description,
-                result.recommendation
-            ]);
-        }
-
+        this.writeHeader(
+            worksheet,
+            "RULE_012 - Validación del Monto de Mercadería en Tránsito vs Kardex",
+            header,
+            "J"
+        );
+        this.writeTableHeader(worksheet);
+        const findings = this.buildFindings(results);
+        this.writeRows(
+            worksheet,
+            findings
+        );
         worksheet.views = [
             {
                 state: "frozen",
-                ySplit: 3
+                ySplit: 4
             }
         ];
-
         worksheet.autoFilter = {
-            from: "A3",
-            to: "M3"
+            from: "A4",
+            to: "J4"
         };
-
         return workbook;
+    }
+
+    private buildFindings(results: any[]): AuditFindingRow[] {
+        const rows: AuditFindingRow[] = [];
+        for (const result of results) {
+            const metadata = result.metadata as Rule012Metadata;
+            rows.push({
+                period: DateUtils.monthName(Number(metadata.month)),
+                productCode: metadata.transitItem,
+                productDescription: result.product_name,
+                inconsistencyType: "Monto de Mercadería en Tránsito",
+                expectedValue: metadata.transitAmount,
+                foundValue: metadata.kardexAmount,
+                difference: metadata.difference,
+                differencePercent:
+                    metadata.transitAmount === 0
+                        ? 0
+                        : Math.abs(metadata.difference / metadata.transitAmount) * 100,
+
+                riskLevel: result.risk_level,
+                traceability: [
+                    `Documento: ${metadata.document}`,
+                    `Documento Normalizado: ${metadata.normalizedDocument}`,
+                    `Proveedor: ${metadata.supplier}`,
+                    `RUC: ${metadata.supplierRuc}`,
+                    `Fecha Emisión: ${metadata.issueDate}`,
+                    `Fecha Ingreso Almacén: ${metadata.warehouseDate}`,
+                    `Movimientos Kardex: ${metadata.movements}`,
+                    `Ítem Tránsito: ${metadata.transitItem}`
+                ].join("\n")
+            });
+        }
+        return rows;
     }
 }

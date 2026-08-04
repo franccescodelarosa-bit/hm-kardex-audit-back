@@ -1,5 +1,10 @@
 import ExcelJS from "exceljs";
 
+import { BaseExcelExporter } from "./base/BaseExcelExporter";
+import { ReportHeader } from "./base/ReportHeader";
+import { AuditFindingRow } from "./base/AuditFindingRow";
+import { DateUtils } from "../helpers/dateutils";
+
 export interface Rule002Metadata {
     fromMonth: number;
     toMonth: number;
@@ -16,108 +21,125 @@ export interface Rule002Metadata {
     differences: string[];
 }
 
-export class Rule002Exporter {
-    async export(results: any[]) {
+export class Rule002Exporter extends BaseExcelExporter {
+    async export(
+        results: any[],
+        header: ReportHeader
+    ) {
         const workbook = new ExcelJS.Workbook();
         workbook.creator = "HM Kardex Audit";
         workbook.created = new Date();
         const worksheet = workbook.addWorksheet("RULE_002");
-        worksheet.mergeCells("A1:P1");
-        worksheet.getCell("A1").value = "RULE_002 - Validación de Continuidad Mensual";
-        worksheet.getCell("A1").font = { bold: true, size: 16};
-        worksheet.addRow([]);
-        /*worksheet.columns = [
-            { header: "Código", key: "code", width: 18 },
-            { header: "Producto", key: "product", width: 40 },
-            { header: "Mes Final", key: "fromMonth", width: 12 },
-            { header: "Mes Inicial", key: "toMonth", width: 12 },
-            { header: "Cantidad Final", key: "finalQuantity", width: 18 },
-            { header: "Cantidad Inicial", key: "initialQuantity", width: 18 },
-            { header: "Diferencia Cantidad", key: "quantityDifference", width: 20 },
-            { header: "Costo Unitario Final", key: "finalUnitCost", width: 20 },
-            { header: "Costo Unitario Inicial", key: "initialUnitCost", width: 20 },
-            { header: "Diferencia Costo Unitario", key: "unitCostDifference", width: 22 },
-            { header: "Costo Total Final", key: "finalTotalCost", width: 20 },
-            { header: "Costo Total Inicial", key: "initialTotalCost", width: 20 },
-            { header: "Diferencia Costo Total", key: "totalCostDifference", width: 22 },
-            { header: "Campos con Diferencia", key: "differences", width: 30 },
-            { header: "Descripción", key: "description", width: 50 },
-            { header: "Recomendación", key: "recommendation", width: 50 }
-        ];*/
-        worksheet.addRow([
-            "Código",
-            "Producto",
-            "Mes Final",
-            "Mes Inicial",
-            "Cantidad Final",
-            "Cantidad Inicial",
-            "Diferencia Cantidad",
-            "Costo Unitario Final",
-            "Costo Unitario Inicial",
-            "Diferencia Costo Unitario",
-            "Costo Total Final",
-            "Costo Total Inicial",
-            "Diferencia Costo Total",
-            "Campos con Diferencia",
-            "Descripción",
-            "Recomendación"
-        ]);
-        worksheet.getColumn(1).width = 18;
-        worksheet.getColumn(2).width = 40;
-        worksheet.getColumn(3).width = 12;
-        worksheet.getColumn(4).width = 12;
-        worksheet.getColumn(5).width = 18;
-        worksheet.getColumn(6).width = 18;
-        worksheet.getColumn(7).width = 20;
-        worksheet.getColumn(8).width = 20;
-        worksheet.getColumn(9).width = 20;
-        worksheet.getColumn(10).width = 22;
-        worksheet.getColumn(11).width = 20;
-        worksheet.getColumn(12).width = 20;
-        worksheet.getColumn(13).width = 22;
-        worksheet.getColumn(14).width = 30;
-        worksheet.getColumn(15).width = 50;
-        worksheet.getColumn(16).width = 50;
-
-        for (const result of results) {
-            const metadata = result.metadata as Rule002Metadata;
-            worksheet.addRow([
-                result.product_code,
-                result.product_name,
-                metadata.fromMonth,
-                metadata.toMonth,
-                metadata.finalBalance.quantity,
-                metadata.initialBalance.quantity,
-                metadata.finalBalance.quantity -
-                    metadata.initialBalance.quantity,
-                metadata.finalBalance.unitCost,
-                metadata.initialBalance.unitCost,
-                metadata.finalBalance.unitCost -
-                    metadata.initialBalance.unitCost,
-                metadata.finalBalance.totalCost,
-                metadata.initialBalance.totalCost,
-                metadata.finalBalance.totalCost -
-                    metadata.initialBalance.totalCost,
-                metadata.differences.join(", "),
-                result.description,
-                result.recommendation
-            ]);
-        }
-
+        this.writeHeader(
+            worksheet,
+            "RULE_002 - Validación de Continuidad Mensual",
+            header,
+            "J"
+        );
+        this.writeTableHeader(worksheet);
+        const findings = this.buildFindings(results);
+        this.writeRows(
+            worksheet,
+            findings
+        );
         worksheet.views = [
             {
                 state: "frozen",
-                ySplit: 3
+                ySplit: 4
             }
         ];
-
         worksheet.autoFilter = {
-            from: "A3",
-            to: "P3"
+            from: "A4",
+            to: "J4"
         };
-
         return workbook;
-
     }
 
+    private buildFindings(results: any[]): AuditFindingRow[] {
+        const rows: AuditFindingRow[] = [];
+        for (const result of results) {
+            const metadata = result.metadata as Rule002Metadata;
+            // CONTINUIDAD CANTIDAD
+            rows.push({
+                period: `${DateUtils.monthName(metadata.fromMonth)} → ${DateUtils.monthName(metadata.toMonth)}`,
+                productCode: result.product_code,
+                productDescription: result.product_name,
+                inconsistencyType: "Continuidad de Cantidad",
+                expectedValue: metadata.finalBalance.quantity,
+                foundValue: metadata.initialBalance.quantity,
+                difference: metadata.finalBalance.quantity - metadata.initialBalance.quantity,
+                differencePercent:
+                    metadata.finalBalance.quantity === 0
+                        ? 0
+                        : Math.abs(
+                            (
+                                metadata.finalBalance.quantity -
+                                metadata.initialBalance.quantity
+                            ) /
+                            metadata.finalBalance.quantity
+                        ) * 100,
+                riskLevel: result.risk_level,
+                traceability: [
+                    `Mes Final: ${DateUtils.monthName(metadata.fromMonth)}`,
+                    `Mes Inicial: ${DateUtils.monthName(metadata.toMonth)}`,
+                    `Campos con diferencia: ${metadata.differences.join(", ")}`
+                ].join("\n")
+            });
+
+            // CONTINUIDAD COSTO UNITARIO
+            rows.push({
+                period: `${DateUtils.monthName(metadata.fromMonth)} → ${DateUtils.monthName(metadata.toMonth)}`,
+                productCode: result.product_code,
+                productDescription: result.product_name,
+                inconsistencyType: "Continuidad de Costo Unitario",
+                expectedValue: metadata.finalBalance.unitCost,
+                foundValue: metadata.initialBalance.unitCost,
+                difference: metadata.finalBalance.unitCost - metadata.initialBalance.unitCost,
+                differencePercent:
+                    metadata.finalBalance.unitCost === 0
+                        ? 0
+                        : Math.abs(
+                            (
+                                metadata.finalBalance.unitCost -
+                                metadata.initialBalance.unitCost
+                            ) /
+                            metadata.finalBalance.unitCost
+                        ) * 100,
+                riskLevel: result.risk_level,
+                traceability: [
+                    `Mes Final: ${DateUtils.monthName(metadata.fromMonth)}`,
+                    `Mes Inicial: ${DateUtils.monthName(metadata.toMonth)}`,
+                    `Campos con diferencia: ${metadata.differences.join(", ")}`
+                ].join("\n")
+            });
+
+            // CONTINUIDAD COSTO TOTAL
+            rows.push({
+                period: `${DateUtils.monthName(metadata.fromMonth)} → ${DateUtils.monthName(metadata.toMonth)}`,
+                productCode: result.product_code,
+                productDescription: result.product_name,
+                inconsistencyType: "Continuidad de Costo Total",
+                expectedValue: metadata.finalBalance.totalCost,
+                foundValue: metadata.initialBalance.totalCost,
+                difference: metadata.finalBalance.totalCost - metadata.initialBalance.totalCost,
+                differencePercent:
+                    metadata.finalBalance.totalCost === 0
+                        ? 0
+                        : Math.abs(
+                            (
+                                metadata.finalBalance.totalCost -
+                                metadata.initialBalance.totalCost
+                            ) /
+                            metadata.finalBalance.totalCost
+                        ) * 100,
+                riskLevel: result.risk_level,
+                traceability: [
+                    `Mes Final: ${DateUtils.monthName(metadata.fromMonth)}`,
+                    `Mes Inicial: ${DateUtils.monthName(metadata.toMonth)}`,
+                    `Campos con diferencia: ${metadata.differences.join(", ")}`
+                ].join("\n")
+            });
+        }
+        return rows;
+    }
 }

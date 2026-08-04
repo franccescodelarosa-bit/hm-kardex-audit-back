@@ -1,82 +1,67 @@
 import ExcelJS from "exceljs";
 
+import { BaseExcelExporter } from "./base/BaseExcelExporter";
+import { ReportHeader } from "./base/ReportHeader";
+import { AuditFindingRow } from "./base/AuditFindingRow";
+import { DateUtils } from "../helpers/dateutils";
+
 export interface Rule008Metadata {
     source: string;
-    month: string;
+    month: number;
 }
-
-export class Rule008Exporter {
-
-    async export(results: any[]) {
-
+export class Rule008Exporter extends BaseExcelExporter {
+    async export(
+        results: any[],
+        header: ReportHeader
+    ) {
         const workbook = new ExcelJS.Workbook();
-
         workbook.creator = "HM Kardex Audit";
         workbook.created = new Date();
-
         const worksheet = workbook.addWorksheet("RULE_008");
-
-        worksheet.mergeCells("A1:F1");
-
-        worksheet.getCell("A1").value =
-            "RULE_008 - Productos No Encontrados en el Maestro";
-
-        worksheet.getCell("A1").font = {
-            bold: true,
-            size: 16
-        };
-
-        // Espacio
-        worksheet.addRow([]);
-
-        // Cabeceras
-        worksheet.addRow([
-            "Origen",
-            "Periodo",
-            "Código",
-            "Producto",
-            "Descripción",
-            "Recomendación"
-        ]);
-
-        // Anchos
-        worksheet.getColumn(1).width = 18;
-        worksheet.getColumn(2).width = 12;
-        worksheet.getColumn(3).width = 20;
-        worksheet.getColumn(4).width = 45;
-        worksheet.getColumn(5).width = 60;
-        worksheet.getColumn(6).width = 60;
-
-        // Datos
-        for (const result of results) {
-
-            const metadata = result.metadata as Rule008Metadata;
-
-            worksheet.addRow([
-                metadata.source,
-                metadata.month,
-                result.product_code,
-                result.product_name,
-                result.description,
-                result.recommendation
-            ]);
-
-        }
-
-        worksheet.views = [
-            {
-                state: "frozen",
-                ySplit: 3
-            }
-        ];
-
+        this.writeHeader(
+            worksheet,
+            "RULE_008 - Productos No Encontrados en el Maestro",
+            header,
+            "J"
+        );
+        this.writeTableHeader(worksheet);
+        const findings = this.buildFindings(results);
+        this.writeRows(
+            worksheet,
+            findings
+        );
+        worksheet.views = [{
+            state: "frozen",
+            ySplit: 4
+        }];
         worksheet.autoFilter = {
-            from: "A3",
-            to: "F3"
+            from: "A4",
+            to: "J4"
         };
-
         return workbook;
-
     }
 
+    private buildFindings(results: any[]): AuditFindingRow[] {
+        const rows: AuditFindingRow[] = [];
+        for (const result of results) {
+            const metadata = result.metadata as Rule008Metadata;
+            rows.push({
+                period: DateUtils.monthName(metadata.month),
+                productCode: result.product_code,
+                productDescription: result.product_name,
+                inconsistencyType: "Producto no encontrado en el maestro",
+                expectedValue: "Producto registrado",
+                foundValue: "Producto inexistente",
+                difference: result.product_code,
+                differencePercent: undefined,
+                riskLevel: result.risk_level,
+                traceability: [
+                    `Origen: ${metadata.source}`,
+                    `Código: ${result.product_code}`,
+                    `Producto: ${result.product_name}`
+                ].join("\n")
+            });
+        }
+        return rows;
+    }
 }

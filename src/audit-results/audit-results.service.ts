@@ -1,5 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { AuditResultsRepository } from './repositories/audit-results.repository';
+import { ReportHeader } from '../excel/exporters/base/ReportHeader';
 import { FindingsQueryDto } from './dto/findings-query.dto';
 import { Rule001Exporter } from '../excel/exporters/Rule001Exporter';
 import { Rule002Exporter } from '../excel/exporters/Rule002Exporter';
@@ -35,7 +36,6 @@ export class AuditResultsService {
         auditJobId: string,
         dto: FindingsQueryDto
     ) {
-
         return this.repository.getFindings(auditJobId, dto);
 
     }
@@ -43,53 +43,58 @@ export class AuditResultsService {
         return this.repository.getFinding(id);
     }
     async getExcel(auditJobId: string, ruleId: string){
-        const rows = await this.repository.getExcel(auditJobId, ruleId);
+        const {header, rows} = await this.repository.getExcel(auditJobId, ruleId);
+        if (!rows.length) {
+            throw new BadRequestException(
+                "No existen resultados para la regla."
+            );
+        }
         if (!rows.length) {
             throw new BadRequestException("No existen resultados para la regla.");
         }
         switch(rows[0].audit_rules!.code){
             case "RULE_001":
                 const exporter = new Rule001Exporter();
-                return exporter.export(rows);                
+                return exporter.export(rows, header!);                
             case "RULE_002":
                 const exporter2 = new Rule002Exporter();
-                return exporter2.export(rows);
+                return exporter2.export(rows, header!);
             case "RULE_003":
                 const exporter3 = new Rule003Exporter();
-                return exporter3.export(rows);
+                return exporter3.export(rows, header!);
             case "RULE_004":
                 const exporter4 = new Rule004Exporter();
-                return exporter4.export(rows);
+                return exporter4.export(rows, header!);
             case "RULE_005":
                 const exporter5 = new Rule005Exporter();
-                return exporter5.export(rows);
+                return exporter5.export(rows, header!);
             case "RULE_006":
                 const exporter6 = new Rule006Exporter();
-                return exporter6.export(rows);
+                return exporter6.export(rows, header!);
             case "RULE_007":
                 const exporter7 = new Rule007Exporter();
-                return exporter7.export(rows);
+                return exporter7.export(rows, header!);
             case "RULE_008":
                 const exporter8 = new Rule008Exporter();
-                return exporter8.export(rows);
+                return exporter8.export(rows, header!);
             case "RULE_009":
                 const exporter9 = new Rule009Exporter();
-                return exporter9.export(rows);
+                return exporter9.export(rows, header!);
             case "RULE_010":
                 const exporter10 = new Rule010Exporter();
-                return exporter10.export(rows);
+                return exporter10.export(rows, header!);
             case "RULE_011":
                 const exporter11 = new Rule011Exporter();
-                return exporter11.export(rows); 
+                return exporter11.export(rows, header!); 
             case "RULE_012":
                 const exporter12 = new Rule012Exporter();
-                return exporter12.export(rows); 
+                return exporter12.export(rows, header!); 
             case "RULE_013":
                 const exporter13 = new Rule013Exporter();
-                return exporter13.export(rows); 
+                return exporter13.export(rows, header!); 
             case "RULE_014":
                 const exporter14 = new Rule014Exporter();
-                return exporter14.export(rows); 
+                return exporter14.export(rows, header!); 
             default:
                 throw new BadRequestException(
                     `Exportador no implementado para la regla ${rows[0].audit_rules!.code}`

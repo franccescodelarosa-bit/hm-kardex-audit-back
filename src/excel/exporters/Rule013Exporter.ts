@@ -1,302 +1,151 @@
 import ExcelJS from "exceljs";
 
+import { BaseExcelExporter } from "./base/BaseExcelExporter";
+import { ReportHeader } from "./base/ReportHeader";
+import { AuditFindingRow } from "./base/AuditFindingRow";
+import { DateUtils } from "../helpers/dateutils";
+
 export interface Rule013Metadata {
     month: number;
     normalizedCode: string;
-
     initialBalance: {
         quantity: number;
         totalCost: number;
     };
-
     totals: {
         entry: {
             quantity: number;
             totalCost: number;
         };
-
         exit: {
             quantity: number;
             totalCost: number;
         };
     };
-
     expectedFinalBalance: {
         quantity: number;
         totalCost: number;
     };
-
     costTolerance: {
         percentage: number;
         lowerLimit: number;
         upperLimit: number;
     };
-
     actualFinalBalance: {
         quantity: number;
         totalCost: number;
     };
-
     difference: {
         quantity: number;
         totalCost: number;
     };
-
     movementCount: number;
     differences: string[];
 }
 
-export class Rule013Exporter {
-
-    async export(results: any[]) {
-
+export class Rule013Exporter extends BaseExcelExporter {
+    async export(
+        results: any[],
+        header: ReportHeader
+    ) {
         const workbook = new ExcelJS.Workbook();
-
         workbook.creator = "HM Kardex Audit";
         workbook.created = new Date();
-
         const worksheet = workbook.addWorksheet("RULE_013");
-
-        /*
-         * ============================================================
-         * TÍTULO
-         * ============================================================
-         */
-
-        worksheet.mergeCells("A1:R1");
-
-        worksheet.getCell("A1").value =
-            "RULE_013 - Validación de Sumatorias Mensuales";
-
-        worksheet.getCell("A1").font = {
-            bold: true,
-            size: 16
-        };
-
-        // Espacio
-        worksheet.addRow([]);
-
-        /*
-         * ============================================================
-         * CABECERAS
-         * ============================================================
-         */
-
-        worksheet.addRow([
-            "Código",                                      // A
-            "Producto",                                    // B
-            "Mes",                                         // C
-
-            "Saldo Inicial - Unidades",                     // D
-            "Saldo Inicial - Costo Valorizado",             // E
-
-            "Suma Entradas - Unidades",                     // F
-            "Suma Entradas - Costo Valorizado",             // G
-
-            "Suma Salidas - Unidades",                      // H
-            "Suma Salidas - Costo Valorizado",              // I
-
-            "Saldo Final Esperado - Unidades",              // J
-            "Costo Valorizado Calculado",                   // K
-
-            "Límite Inferior Costo (97.5%)",                // L
-            "Límite Superior Costo (102.5%)",               // M
-
-            "Saldo Final Real - Unidades",                  // N
-            "Saldo Final Real - Costo Valorizado",          // O
-
-            "Diferencias",                                  // P
-            "Descripción",                                  // Q
-            "Recomendación"                                 // R
-        ]);
-
-        /*
-         * ============================================================
-         * ANCHOS
-         * ============================================================
-         */
-
-        worksheet.getColumn(1).width = 18;  // Código
-        worksheet.getColumn(2).width = 45;  // Producto
-        worksheet.getColumn(3).width = 10;  // Mes
-
-        worksheet.getColumn(4).width = 25;  // Saldo inicial unidades
-        worksheet.getColumn(5).width = 32;  // Saldo inicial costo
-
-        worksheet.getColumn(6).width = 25;  // Entradas unidades
-        worksheet.getColumn(7).width = 32;  // Entradas costo
-
-        worksheet.getColumn(8).width = 25;  // Salidas unidades
-        worksheet.getColumn(9).width = 32;  // Salidas costo
-
-        worksheet.getColumn(10).width = 32; // Esperado unidades
-        worksheet.getColumn(11).width = 30; // Costo calculado
-
-        worksheet.getColumn(12).width = 32; // 97.5%
-        worksheet.getColumn(13).width = 32; // 102.5%
-
-        worksheet.getColumn(14).width = 28; // Real unidades
-        worksheet.getColumn(15).width = 35; // Real costo
-
-        worksheet.getColumn(16).width = 40; // Diferencias
-        worksheet.getColumn(17).width = 70; // Descripción
-        worksheet.getColumn(18).width = 70; // Recomendación
-
-        /*
-         * ============================================================
-         * DATOS
-         * ============================================================
-         */
-
-        for (const result of results) {
-
-            const metadata =
-                result.metadata as Rule013Metadata;
-
-            worksheet.addRow([
-                /*
-                 * PRODUCTO
-                 */
-                result.product_code,
-                result.product_name,
-                metadata.month,
-
-                /*
-                 * SALDO INICIAL
-                 *
-                 * Se muestra separado.
-                 * NO está mezclado con las entradas.
-                 */
-                metadata.initialBalance.quantity,
-                metadata.initialBalance.totalCost,
-
-                /*
-                 * SUMA REAL DE ENTRADAS
-                 */
-                metadata.totals.entry.quantity,
-                metadata.totals.entry.totalCost,
-
-                /*
-                 * SUMA REAL DE SALIDAS
-                 */
-                metadata.totals.exit.quantity,
-                metadata.totals.exit.totalCost,
-
-                /*
-                 * RESULTADO CALCULADO
-                 *
-                 * Cantidad:
-                 * Inicial + Entradas - Salidas
-                 *
-                 * Costo:
-                 * Inicial + Entradas - Salidas
-                 */
-                metadata.expectedFinalBalance.quantity,
-                metadata.expectedFinalBalance.totalCost,
-
-                /*
-                 * RANGO PERMITIDO DEL COSTO
-                 */
-                metadata.costTolerance.lowerLimit,
-                metadata.costTolerance.upperLimit,
-
-                /*
-                 * SALDO FINAL REAL DEL KARDEX
-                 */
-                metadata.actualFinalBalance.quantity,
-                metadata.actualFinalBalance.totalCost,
-
-                /*
-                 * RESULTADO DE LA VALIDACIÓN
-                 */
-                metadata.differences.join(", "),
-
-                result.description,
-                result.recommendation
-            ]);
-        }
-
-        /*
-         * ============================================================
-         * FORMATO NUMÉRICO
-         * ============================================================
-         *
-         * Columnas D:O contienen valores numéricos.
-         */
-
-        for (let column = 4; column <= 15; column++) {
-
-            worksheet
-                .getColumn(column)
-                .numFmt = "#,##0.00";
-        }
-
-        /*
-         * ============================================================
-         * CABECERA
-         * ============================================================
-         */
-
-        const headerRow =
-            worksheet.getRow(3);
-
-        headerRow.font = {
-            bold: true
-        };
-
-        headerRow.alignment = {
-            vertical: "middle",
-            horizontal: "center",
-            wrapText: true
-        };
-
-        headerRow.height = 45;
-
-        /*
-         * ============================================================
-         * AJUSTE DE TEXTO
-         * ============================================================
-         */
-
-        worksheet.getColumn(16).alignment = {
-            vertical: "top",
-            wrapText: true
-        };
-
-        worksheet.getColumn(17).alignment = {
-            vertical: "top",
-            wrapText: true
-        };
-
-        worksheet.getColumn(18).alignment = {
-            vertical: "top",
-            wrapText: true
-        };
-
-        /*
-         * ============================================================
-         * CONGELAR CABECERA
-         * ============================================================
-         */
-
+        this.writeHeader(
+            worksheet,
+            "RULE_013 - Validación de Sumatorias Mensuales",
+            header,
+            "J"
+        );
+        this.writeTableHeader(worksheet);
+        const findings =
+            this.buildFindings(results);
+        this.writeRows(
+            worksheet,
+            findings
+        );
         worksheet.views = [
             {
                 state: "frozen",
-                ySplit: 3
+                ySplit: 4
             }
         ];
-
-        /*
-         * ============================================================
-         * FILTROS
-         * ============================================================
-         */
-
         worksheet.autoFilter = {
-            from: "A3",
-            to: "R3"
+            from: "A4",
+            to: "J4"
         };
-
         return workbook;
+    }
+
+    private buildFindings( results: any[] ): AuditFindingRow[] {
+        const rows: AuditFindingRow[] = [];
+        for (const result of results) {
+            const metadata =
+                result.metadata as Rule013Metadata;
+            rows.push({
+                period: DateUtils.monthName(metadata.month),
+                productCode: result.product_code,
+                productDescription: result.product_name,
+                inconsistencyType: "Sumatoria Mensual - Cantidad",
+                expectedValue: metadata.expectedFinalBalance.quantity,
+                foundValue: metadata.actualFinalBalance.quantity,
+                difference: metadata.difference.quantity,
+                differencePercent:
+                    metadata.expectedFinalBalance.quantity === 0
+                        ? 0
+                        : Math.abs(
+                            metadata.difference.quantity /
+                            metadata.expectedFinalBalance.quantity
+                        ) * 100,
+                riskLevel: result.risk_level,
+                traceability: [
+                    `Código Normalizado: ${metadata.normalizedCode}`,
+                    `Saldo Inicial: ${metadata.initialBalance.quantity}`,
+                    `Entradas: ${metadata.totals.entry.quantity}`,
+                    `Salidas: ${metadata.totals.exit.quantity}`,
+                    `Saldo Esperado: ${metadata.expectedFinalBalance.quantity}`,
+                    `Saldo Real: ${metadata.actualFinalBalance.quantity}`,
+                    `Movimientos Analizados: ${metadata.movementCount}`,
+                    `Campos con diferencia: ${metadata.differences.join(", ")}`
+                ].join("\n")
+            });
+
+            /*
+             * =====================================================
+             * COSTO VALORIZADO
+             * =====================================================
+             */
+
+            rows.push({
+                period: DateUtils.monthName(metadata.month),
+                productCode: result.product_code,
+                productDescription: result.product_name,
+                inconsistencyType: "Costo Valorizado Mensual",
+                expectedValue: metadata.expectedFinalBalance.totalCost,
+                foundValue: metadata.actualFinalBalance.totalCost,
+                difference: metadata.difference.totalCost,
+                differencePercent:
+                    metadata.expectedFinalBalance.totalCost === 0
+                        ? 0
+                        : Math.abs(
+                            metadata.difference.totalCost /
+                            metadata.expectedFinalBalance.totalCost
+                        ) * 100,
+                riskLevel: result.risk_level,
+                traceability: [
+                    `Código Normalizado: ${metadata.normalizedCode}`,
+                    `Saldo Inicial: ${metadata.initialBalance.totalCost}`,
+                    `Entradas: ${metadata.totals.entry.totalCost}`,
+                    `Salidas: ${metadata.totals.exit.totalCost}`,
+                    `Costo Esperado: ${metadata.expectedFinalBalance.totalCost}`,
+                    `Costo Real: ${metadata.actualFinalBalance.totalCost}`,
+                    `Rango Permitido (${metadata.costTolerance.percentage}%): ${metadata.costTolerance.lowerLimit} - ${metadata.costTolerance.upperLimit}`,
+                    `Movimientos Analizados: ${metadata.movementCount}`,
+                    `Campos con diferencia: ${metadata.differences.join(", ")}`
+                ].join("\n")
+            });
+        }
+        return rows;
     }
 }
