@@ -12,9 +12,15 @@ export interface Rule012Metadata {
     supplier: string;
     document: string;
     normalizedDocument: string;
-    transitAmount: number;
-    kardexAmount: number;
+
+    expectedCost: number;
+    kardexCost: number;
     difference: number;
+    differencePercent: number;
+
+    thresholdPercent: number;
+    isIncident: boolean;
+
     movements: number;
     month?: number;
     transitItem: string;
@@ -59,19 +65,29 @@ export class Rule012Exporter extends BaseExcelExporter {
         for (const result of results) {
             const metadata = result.metadata as Rule012Metadata;
             rows.push({
-                period: DateUtils.monthName(Number(metadata.month)),
+                period: metadata.month
+                    ? DateUtils.monthName(Number(metadata.month))
+                    : "Sin período",
+
                 productCode: metadata.transitItem,
+
                 productDescription: result.product_name,
-                inconsistencyType: "Monto de Mercadería en Tránsito",
-                expectedValue: metadata.transitAmount,
-                foundValue: metadata.kardexAmount,
+
+                inconsistencyType:
+                    metadata.isIncident
+                        ? "INCIDENCIA"
+                        : "ACEPTADA",
+
+                expectedValue: metadata.expectedCost,
+
+                foundValue: metadata.kardexCost,
+
                 difference: metadata.difference,
-                differencePercent:
-                    metadata.transitAmount === 0
-                        ? 0
-                        : Math.abs(metadata.difference / metadata.transitAmount) * 100,
+
+                differencePercent: metadata.differencePercent,
 
                 riskLevel: result.risk_level,
+
                 traceability: [
                     `Documento: ${metadata.document}`,
                     `Documento Normalizado: ${metadata.normalizedDocument}`,
@@ -79,6 +95,12 @@ export class Rule012Exporter extends BaseExcelExporter {
                     `RUC: ${metadata.supplierRuc}`,
                     `Fecha Emisión: ${metadata.issueDate}`,
                     `Fecha Ingreso Almacén: ${metadata.warehouseDate}`,
+                    `Valor Documento: ${metadata.expectedCost.toFixed(2)}`,
+                    `Valor Kardex: ${metadata.kardexCost.toFixed(2)}`,
+                    `Diferencia: ${metadata.difference.toFixed(2)}`,
+                    `% Diferencia: ${metadata.differencePercent.toFixed(2)}%`,
+                    `Umbral permitido: ${metadata.thresholdPercent.toFixed(2)}%`,
+                    `Resultado: ${metadata.isIncident ? "INCIDENCIA" : "ACEPTADA"}`,
                     `Movimientos Kardex: ${metadata.movements}`,
                     `Ítem Tránsito: ${metadata.transitItem}`
                 ].join("\n")

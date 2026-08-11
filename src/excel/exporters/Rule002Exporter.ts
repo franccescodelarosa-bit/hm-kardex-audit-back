@@ -8,16 +8,8 @@ import { DateUtils } from "../helpers/dateutils";
 export interface Rule002Metadata {
     fromMonth: number;
     toMonth: number;
-    finalBalance: {
-        quantity: number;
-        unitCost: number;
-        totalCost: number;
-    };
-    initialBalance: {
-        quantity: number;
-        unitCost: number;
-        totalCost: number;
-    };
+    finalQuantity: number;
+    initialQuantity: number;
     differences: string[];
 }
 
@@ -56,90 +48,44 @@ export class Rule002Exporter extends BaseExcelExporter {
     }
 
     private buildFindings(results: any[]): AuditFindingRow[] {
-        const rows: AuditFindingRow[] = [];
-        for (const result of results) {
-            const metadata = result.metadata as Rule002Metadata;
-            // CONTINUIDAD CANTIDAD
-            rows.push({
-                period: `${DateUtils.monthName(metadata.fromMonth)} → ${DateUtils.monthName(metadata.toMonth)}`,
-                productCode: result.product_code,
-                productDescription: result.product_name,
-                inconsistencyType: "Continuidad de Cantidad",
-                expectedValue: metadata.finalBalance.quantity,
-                foundValue: metadata.initialBalance.quantity,
-                difference: metadata.finalBalance.quantity - metadata.initialBalance.quantity,
-                differencePercent:
-                    metadata.finalBalance.quantity === 0
-                        ? 0
-                        : Math.abs(
-                            (
-                                metadata.finalBalance.quantity -
-                                metadata.initialBalance.quantity
-                            ) /
-                            metadata.finalBalance.quantity
-                        ) * 100,
-                riskLevel: result.risk_level,
-                traceability: [
-                    `Mes Final: ${DateUtils.monthName(metadata.fromMonth)}`,
-                    `Mes Inicial: ${DateUtils.monthName(metadata.toMonth)}`,
-                    `Campos con diferencia: ${metadata.differences.join(", ")}`
-                ].join("\n")
-            });
+    const rows: AuditFindingRow[] = [];
 
-            // CONTINUIDAD COSTO UNITARIO
-            rows.push({
-                period: `${DateUtils.monthName(metadata.fromMonth)} → ${DateUtils.monthName(metadata.toMonth)}`,
-                productCode: result.product_code,
-                productDescription: result.product_name,
-                inconsistencyType: "Continuidad de Costo Unitario",
-                expectedValue: metadata.finalBalance.unitCost,
-                foundValue: metadata.initialBalance.unitCost,
-                difference: metadata.finalBalance.unitCost - metadata.initialBalance.unitCost,
-                differencePercent:
-                    metadata.finalBalance.unitCost === 0
-                        ? 0
-                        : Math.abs(
-                            (
-                                metadata.finalBalance.unitCost -
-                                metadata.initialBalance.unitCost
-                            ) /
-                            metadata.finalBalance.unitCost
-                        ) * 100,
-                riskLevel: result.risk_level,
-                traceability: [
-                    `Mes Final: ${DateUtils.monthName(metadata.fromMonth)}`,
-                    `Mes Inicial: ${DateUtils.monthName(metadata.toMonth)}`,
-                    `Campos con diferencia: ${metadata.differences.join(", ")}`
-                ].join("\n")
-            });
+    for (const result of results) {
+        const metadata = result.metadata as Rule002Metadata;
 
-            // CONTINUIDAD COSTO TOTAL
-            rows.push({
-                period: `${DateUtils.monthName(metadata.fromMonth)} → ${DateUtils.monthName(metadata.toMonth)}`,
-                productCode: result.product_code,
-                productDescription: result.product_name,
-                inconsistencyType: "Continuidad de Costo Total",
-                expectedValue: metadata.finalBalance.totalCost,
-                foundValue: metadata.initialBalance.totalCost,
-                difference: metadata.finalBalance.totalCost - metadata.initialBalance.totalCost,
-                differencePercent:
-                    metadata.finalBalance.totalCost === 0
-                        ? 0
-                        : Math.abs(
-                            (
-                                metadata.finalBalance.totalCost -
-                                metadata.initialBalance.totalCost
-                            ) /
-                            metadata.finalBalance.totalCost
-                        ) * 100,
-                riskLevel: result.risk_level,
-                traceability: [
-                    `Mes Final: ${DateUtils.monthName(metadata.fromMonth)}`,
-                    `Mes Inicial: ${DateUtils.monthName(metadata.toMonth)}`,
-                    `Campos con diferencia: ${metadata.differences.join(", ")}`
-                ].join("\n")
-            });
-        }
-        return rows;
+        rows.push({
+            period: `${DateUtils.monthName(metadata.fromMonth)} → ${DateUtils.monthName(metadata.toMonth)}`,
+            productCode: result.product_code,
+            productDescription: result.product_name,
+            inconsistencyType: "Continuidad de Cantidad",
+
+            expectedValue: metadata.finalQuantity,
+            foundValue: metadata.initialQuantity,
+
+            difference:
+                metadata.finalQuantity -
+                metadata.initialQuantity,
+
+            differencePercent:
+                metadata.finalQuantity === 0
+                    ? 0
+                    : Math.abs(
+                        (
+                            metadata.finalQuantity -
+                            metadata.initialQuantity
+                        ) / metadata.finalQuantity
+                    ) * 100,
+
+            riskLevel: result.risk_level,
+
+            traceability: [
+                `Mes Final: ${DateUtils.monthName(metadata.fromMonth)}`,
+                `Mes Inicial: ${DateUtils.monthName(metadata.toMonth)}`,
+                `Campos con diferencia: Cantidad`
+            ].join("\n")
+        });
     }
+
+    return rows;
+}
 }

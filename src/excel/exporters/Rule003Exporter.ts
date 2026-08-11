@@ -84,8 +84,8 @@ export class Rule003Exporter extends BaseExcelExporter {
                 traceability: [
                     `Mes Cierre: ${DateUtils.monthName(metadata.fromIndex)}`,
                     `Mes Inicio: ${DateUtils.monthName(metadata.toIndex)}`,
-                    `Cantidad Final: ${metadata.finalBalance.quantity}`,
-                    `Cantidad Inicial: ${metadata.initialBalance.quantity}`,
+                    `Costo Unitario Final: ${metadata.finalBalance.unitCost}`,
+                    `Costo Unitario Inicial: ${metadata.initialBalance.unitCost}`,
                     `Campos con diferencia: ${metadata.differences.join(", ")}`
                 ].join("\n")
             });
@@ -116,8 +116,8 @@ export class Rule003Exporter extends BaseExcelExporter {
                 traceability: [
                     `Mes Cierre: ${DateUtils.monthName(metadata.fromIndex)}`,
                     `Mes Inicio: ${DateUtils.monthName(metadata.toIndex)}`,
-                    `Cantidad Final: ${metadata.finalBalance.quantity}`,
-                    `Cantidad Inicial: ${metadata.initialBalance.quantity}`,
+                    `Costo Total Final: ${metadata.finalBalance.totalCost}`,
+                    `Costo Total Inicial: ${metadata.initialBalance.totalCost}`,
                     `Campos con diferencia: ${metadata.differences.join(", ")}`
                 ].join("\n")
             });

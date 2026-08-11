@@ -16,6 +16,8 @@ export interface Rule004Metadata {
     month: string | null;
     duplicatedItems: number;
     products: string;
+    expectedCost: number;
+    foundCost: number;
 }
 
 export class Rule004Exporter extends BaseExcelExporter {
@@ -61,10 +63,18 @@ export class Rule004Exporter extends BaseExcelExporter {
                 productCode: metadata.transitItem,
                 productDescription: metadata.products,
                 inconsistencyType: "Mercadería en tránsito no registrada",
-                expectedValue: "Documento registrado en Kardex",
-                foundValue: "Documento no encontrado",
-                difference: metadata.document,
-                differencePercent: undefined,
+                expectedValue: metadata.expectedCost,
+                foundValue: metadata.foundCost,
+                difference: metadata.expectedCost - metadata.foundCost,
+                differencePercent:
+                    metadata.expectedCost === 0
+                        ? 0
+                        : Math.abs(
+                            (
+                                (metadata.expectedCost - metadata.foundCost) /
+                                metadata.expectedCost
+                            ) * 100
+                        ),
                 riskLevel: result.risk_level,
                 traceability: [
                     `Documento: ${metadata.document}`,
