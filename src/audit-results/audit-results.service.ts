@@ -47,7 +47,6 @@ export class AuditResultsService {
         return this.repository.putAuditResult(id, dto);
     }
     async getExcel(auditJobId: string, ruleId: string){
-        console.log("miau");
         const {header, rows} = await this.repository.getExcel(auditJobId, ruleId);
         console.log(header, rows);
         if (!rows.length) {

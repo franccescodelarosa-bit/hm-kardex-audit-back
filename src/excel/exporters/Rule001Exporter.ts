@@ -28,7 +28,7 @@ export class Rule001Exporter extends BaseExcelExporter {
         const worksheet = workbook.addWorksheet("RULE_001");
         this.writeHeader(
             worksheet,
-            "RULE_001 - Validación Inventario Final vs Kardex",
+            "RULE_001 - Validación y comparacion de cantidades y costos del inventario al cierre del año",
             header,
             "J"
         );

@@ -31,7 +31,7 @@ export class Rule004Exporter extends BaseExcelExporter {
         const worksheet = workbook.addWorksheet("RULE_004");
         this.writeHeader(
             worksheet,
-            "RULE_004 - Mercadería en Tránsito no Registrada en el Kardex",
+            "RULE_004 - Validación de facturas de mercadería en transito al cierre del año",
             header,
             "J"
         );

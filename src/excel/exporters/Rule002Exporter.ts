@@ -24,7 +24,7 @@ export class Rule002Exporter extends BaseExcelExporter {
         const worksheet = workbook.addWorksheet("RULE_002");
         this.writeHeader(
             worksheet,
-            "RULE_002 - Validación de Continuidad Mensual",
+            "RULE_002 - Validación de continuidad mensual de los saldos final e inicial en cantidades",
             header,
             "J"
         );
