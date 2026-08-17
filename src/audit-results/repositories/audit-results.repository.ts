@@ -369,6 +369,7 @@ export class AuditResultsRepository {
                 product_name: true,
                 description: true,
                 recommendation: true,
+                error_type: true,
                 risk_level: true,
                 metadata: true,
                 audit_rules: {
