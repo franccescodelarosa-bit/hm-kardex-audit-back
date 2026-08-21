@@ -3,9 +3,11 @@ import ExcelJS from "exceljs";
 import { BaseExcelExporter } from "./base/BaseExcelExporter";
 import { ReportHeader } from "./base/ReportHeader";
 import { AuditFindingRow } from "./base/AuditFindingRow";
+import { DateUtils } from "../helpers/dateutils";
 
 export interface Rule006Metadata {
     source: string;
+    month?: number;
     occurrences: number;
     rows: number[];
 }
@@ -49,7 +51,9 @@ export class Rule006Exporter extends BaseExcelExporter {
         for (const result of results) {
             const metadata = result.metadata as Rule006Metadata;
             rows.push({
-                period: "-",
+                period: metadata.month
+                    ? DateUtils.monthName(Number(metadata.month))
+                    : "-",
                 productCode: result.product_code,
                 productDescription: result.product_name,
                 inconsistencyType: "Producto Duplicado",

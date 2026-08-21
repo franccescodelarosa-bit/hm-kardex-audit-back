@@ -4,7 +4,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, ExtractJwt } from 'passport-jwt';
 
 import * as jwksRsa from 'jwks-rsa';
-const COGNITO_URL = `https://cognito-idp.us-east-1.amazonaws.com/${process.env.COGNITO_USER_POOL_ID}`;
+// const COGNITO_URL = `https://cognito-idp.us-east-1.amazonaws.com/${process.env.COGNITO_USER_POOL_ID}`;
 
 @Injectable()
 export class CognitoStrategy extends PassportStrategy(
@@ -12,6 +12,7 @@ export class CognitoStrategy extends PassportStrategy(
   'jwt',
 ) {
   constructor() {
+    const COGNITO_URL = `https://cognito-idp.us-east-1.amazonaws.com/${process.env.COGNITO_USER_POOL_ID}`;
     super({
       jwtFromRequest:
         ExtractJwt.fromAuthHeaderAsBearerToken(),

@@ -16,7 +16,9 @@ import { AuditResultsModule } from './audit-results/audit-results.module';
 import { ExcelService } from './excel/excel.service';
 
 @Module({
-  imports: [PrismaModule, AuthModule, UsersModule, AdminModule, CompaniesModule, UploadsModule, AuditsModule, AccessLogsModule, ClientsModule, AuditEngineModule, AuditResultsModule],
+  imports: [PrismaModule, AuthModule, UsersModule, AdminModule, CompaniesModule, UploadsModule, AuditsModule, AccessLogsModule, ClientsModule, AuditEngineModule, AuditResultsModule,
+    ConfigModule.forRoot({ isGlobal: true })
+  ],
   controllers: [AppController],
   providers: [AppService, ExcelService],
 })

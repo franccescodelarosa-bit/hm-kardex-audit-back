@@ -20,10 +20,12 @@ export interface Rule013Metadata {
         exit: {
             quantity: number;
             totalCost: number;
+            totalCostArchivo: number;
         };
     };
     expectedFinalBalance: {
         quantity: number;
+        unitCost: number;
         totalCost: number;
     };
     costTolerance: {
@@ -33,10 +35,12 @@ export interface Rule013Metadata {
     };
     actualFinalBalance: {
         quantity: number;
+        unitCost: number;
         totalCost: number;
     };
     difference: {
         quantity: number;
+        unitCost: number;
         totalCost: number;
     };
     movementCount: number;
@@ -78,74 +82,104 @@ export class Rule013Exporter extends BaseExcelExporter {
         return workbook;
     }
 
+    private static percent(expected: number, difference: number): number {
+        return expected === 0
+            ? 0
+            : Math.abs(difference / expected) * 100;
+    }
+
     private buildFindings( results: any[] ): AuditFindingRow[] {
         const rows: AuditFindingRow[] = [];
         for (const result of results) {
             const metadata =
                 result.metadata as Rule013Metadata;
-            rows.push({
-                period: DateUtils.monthName(metadata.month),
-                productCode: result.product_code,
-                productDescription: result.product_name,
-                inconsistencyType: "Sumatoria Mensual - Cantidad",
-                expectedValue: metadata.expectedFinalBalance.quantity,
-                foundValue: metadata.actualFinalBalance.quantity,
-                difference: metadata.difference.quantity,
-                differencePercent:
-                    metadata.expectedFinalBalance.quantity === 0
-                        ? 0
-                        : Math.abs(
-                            metadata.difference.quantity /
-                            metadata.expectedFinalBalance.quantity
-                        ) * 100,
-                riskLevel: result.risk_level,
-                traceability: [
-                    `Código Normalizado: ${metadata.normalizedCode}`,
-                    `Saldo Inicial: ${metadata.initialBalance.quantity}`,
-                    `Entradas: ${metadata.totals.entry.quantity}`,
-                    `Salidas: ${metadata.totals.exit.quantity}`,
-                    `Saldo Esperado: ${metadata.expectedFinalBalance.quantity}`,
-                    `Saldo Real: ${metadata.actualFinalBalance.quantity}`,
-                    `Movimientos Analizados: ${metadata.movementCount}`,
-                    `Campos con diferencia: ${metadata.differences.join(", ")}`
-                ].join("\n")
-            });
+            const period = DateUtils.monthName(metadata.month);
+            const codigoNormalizado = `Código Normalizado: ${metadata.normalizedCode}`;
+            const camposConDiferencia = `Campos con diferencia: ${metadata.differences.join(", ")}`;
 
-            /*
-             * =====================================================
-             * COSTO VALORIZADO
-             * =====================================================
-             */
+            if (metadata.differences.includes("Costo Total de Salidas")) {
+                rows.push({
+                    period,
+                    productCode: result.product_code,
+                    productDescription: result.product_name,
+                    inconsistencyType: "Costo Total de Salidas",
+                    expectedValue: metadata.totals.exit.totalCost,
+                    foundValue: metadata.totals.exit.totalCostArchivo,
+                    difference: Rule013Exporter.round(
+                        metadata.totals.exit.totalCost - metadata.totals.exit.totalCostArchivo
+                    ),
+                    differencePercent: Rule013Exporter.percent(
+                        metadata.totals.exit.totalCost,
+                        metadata.totals.exit.totalCost - metadata.totals.exit.totalCostArchivo
+                    ),
+                    riskLevel: result.risk_level,
+                    traceability: [
+                        codigoNormalizado,
+                        `Cantidad de Salidas: ${metadata.totals.exit.quantity}`,
+                        `Costo de Salidas Recalculado (CPP): ${metadata.totals.exit.totalCost}`,
+                        `Costo de Salidas del Archivo: ${metadata.totals.exit.totalCostArchivo}`,
+                        `Movimientos Analizados: ${metadata.movementCount}`,
+                        camposConDiferencia
+                    ].join("\n")
+                });
+            }
 
-            rows.push({
-                period: DateUtils.monthName(metadata.month),
-                productCode: result.product_code,
-                productDescription: result.product_name,
-                inconsistencyType: "Costo Valorizado Mensual",
-                expectedValue: metadata.expectedFinalBalance.totalCost,
-                foundValue: metadata.actualFinalBalance.totalCost,
-                difference: metadata.difference.totalCost,
-                differencePercent:
-                    metadata.expectedFinalBalance.totalCost === 0
-                        ? 0
-                        : Math.abs(
-                            metadata.difference.totalCost /
-                            metadata.expectedFinalBalance.totalCost
-                        ) * 100,
-                riskLevel: result.risk_level,
-                traceability: [
-                    `Código Normalizado: ${metadata.normalizedCode}`,
-                    `Saldo Inicial: ${metadata.initialBalance.totalCost}`,
-                    `Entradas: ${metadata.totals.entry.totalCost}`,
-                    `Salidas: ${metadata.totals.exit.totalCost}`,
-                    `Costo Esperado: ${metadata.expectedFinalBalance.totalCost}`,
-                    `Costo Real: ${metadata.actualFinalBalance.totalCost}`,
-                    `Rango Permitido (${metadata.costTolerance.percentage}%): ${metadata.costTolerance.lowerLimit} - ${metadata.costTolerance.upperLimit}`,
-                    `Movimientos Analizados: ${metadata.movementCount}`,
-                    `Campos con diferencia: ${metadata.differences.join(", ")}`
-                ].join("\n")
-            });
+            if (metadata.differences.includes("Costo Total de Saldo Final")) {
+                rows.push({
+                    period,
+                    productCode: result.product_code,
+                    productDescription: result.product_name,
+                    inconsistencyType: "Costo Valorizado Mensual",
+                    expectedValue: metadata.expectedFinalBalance.totalCost,
+                    foundValue: metadata.actualFinalBalance.totalCost,
+                    difference: metadata.difference.totalCost,
+                    differencePercent: Rule013Exporter.percent(
+                        metadata.expectedFinalBalance.totalCost,
+                        metadata.difference.totalCost
+                    ),
+                    riskLevel: result.risk_level,
+                    traceability: [
+                        codigoNormalizado,
+                        `Saldo Inicial: ${metadata.initialBalance.totalCost}`,
+                        `Entradas: ${metadata.totals.entry.totalCost}`,
+                        `Salidas: ${metadata.totals.exit.totalCost}`,
+                        `Costo Esperado: ${metadata.expectedFinalBalance.totalCost}`,
+                        `Costo Real: ${metadata.actualFinalBalance.totalCost}`,
+                        `Rango Permitido (${metadata.costTolerance.percentage}%): ${metadata.costTolerance.lowerLimit} - ${metadata.costTolerance.upperLimit}`,
+                        `Movimientos Analizados: ${metadata.movementCount}`,
+                        camposConDiferencia
+                    ].join("\n")
+                });
+            }
+
+            if (metadata.differences.includes("Costo Unitario de Saldo Final")) {
+                rows.push({
+                    period,
+                    productCode: result.product_code,
+                    productDescription: result.product_name,
+                    inconsistencyType: "Costo Unitario de Saldo Final",
+                    expectedValue: metadata.expectedFinalBalance.unitCost,
+                    foundValue: metadata.actualFinalBalance.unitCost,
+                    difference: metadata.difference.unitCost,
+                    differencePercent: Rule013Exporter.percent(
+                        metadata.expectedFinalBalance.unitCost,
+                        metadata.difference.unitCost
+                    ),
+                    riskLevel: result.risk_level,
+                    traceability: [
+                        codigoNormalizado,
+                        `CPP Recalculado: ${metadata.expectedFinalBalance.unitCost}`,
+                        `Costo Unitario del Archivo: ${metadata.actualFinalBalance.unitCost}`,
+                        `Movimientos Analizados: ${metadata.movementCount}`,
+                        camposConDiferencia
+                    ].join("\n")
+                });
+            }
         }
         return rows;
+    }
+
+    private static round(value: number): number {
+        return Math.round(value * 100) / 100;
     }
 }

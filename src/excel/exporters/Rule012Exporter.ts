@@ -68,8 +68,7 @@ export class Rule012Exporter extends BaseExcelExporter {
                 period: metadata.month
                     ? DateUtils.monthName(Number(metadata.month))
                     : "Sin período",
-
-                productCode: metadata.transitItem,
+                productCode: result.product_code,
 
                 productDescription: result.product_name,
 

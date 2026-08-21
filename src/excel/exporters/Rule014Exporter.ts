@@ -29,6 +29,7 @@ export interface Rule014Metadata {
         lowerLimit: number;
         upperLimit: number;
     };
+    /** Inventario Valorizado de CIERRE real (suma de saldos finales). El diagrama oficial de Regla 14 lo llama "valor esperado". */
     actualFinalBalance: {
         quantity: number;
         totalCost: number;
@@ -77,75 +78,84 @@ export class Rule014Exporter extends BaseExcelExporter {
         return workbook;
     }
 
+    private static round(value: number): number {
+        return Math.round(value * 100) / 100;
+    }
+
+    private static percent(expected: number, difference: number): number {
+        return expected === 0
+            ? 0
+            : Math.abs(difference / expected) * 100;
+    }
+
     private buildFindings( results: any[] ): AuditFindingRow[] {
         const rows: AuditFindingRow[] = [];
         for (const result of results) {
             const metadata = result.metadata as Rule014Metadata;
-            /*
-             * =====================================================
-             * CANTIDAD CONSOLIDADA
-             * =====================================================
-             */
-            rows.push({
-                period: DateUtils.monthName(metadata.month),
-                productCode: "CONSOLIDADO",
-                productDescription: "Consolidado Mensual",
-                inconsistencyType: "Sumatoria Consolidada - Cantidad",
-                expectedValue: metadata.expectedFinalBalance.quantity,
-                foundValue: metadata.actualFinalBalance.quantity,
-                difference: metadata.difference.quantity,
-                differencePercent:
-                    metadata.expectedFinalBalance.quantity === 0
-                        ? 0
-                        : Math.abs(
-                            metadata.difference.quantity /
-                            metadata.expectedFinalBalance.quantity
-                        ) * 100,
-                riskLevel: result.risk_level,
-                traceability: [
-                    `Saldo Inicial: ${metadata.initialBalance.quantity}`,
-                    `Entradas: ${metadata.totals.entry.quantity}`,
-                    `Salidas: ${metadata.totals.exit.quantity}`,
-                    `Saldo Esperado: ${metadata.expectedFinalBalance.quantity}`,
-                    `Saldo Real: ${metadata.actualFinalBalance.quantity}`,
-                    `Productos Consolidados: ${metadata.productCount}`,
-                    `Movimientos Consolidados: ${metadata.movementCount}`,
-                    `Campos con diferencia: ${metadata.differences.join(", ")}`
-                ].join("\n")
-            });
-            /*
-             * =====================================================
-             * COSTO CONSOLIDADO
-             * =====================================================
-             */
-            rows.push({
-                period: DateUtils.monthName(metadata.month),
-                productCode: "CONSOLIDADO",
-                productDescription: "Consolidado Mensual",
-                inconsistencyType: "Costo Valorizado Consolidado",
-                expectedValue: metadata.expectedFinalBalance.totalCost,
-                foundValue: metadata.actualFinalBalance.totalCost,
-                difference: metadata.difference.totalCost,
-                differencePercent:
-                    metadata.expectedFinalBalance.totalCost === 0
-                        ? 0
-                        : Math.abs(
-                            metadata.difference.totalCost /
-                            metadata.expectedFinalBalance.totalCost
-                        ) * 100,
-                riskLevel: result.risk_level,
-                traceability: [
-                    `Saldo Inicial: ${metadata.initialBalance.totalCost}`,
-                    `Entradas: ${metadata.totals.entry.totalCost}`,
-                    `Salidas: ${metadata.totals.exit.totalCost}`,
-                    `Costo Esperado: ${metadata.expectedFinalBalance.totalCost}`,
-                    `Costo Real: ${metadata.actualFinalBalance.totalCost}`,
-                    `Rango Permitido (${metadata.costTolerance.percentage}%): ${metadata.costTolerance.lowerLimit} - ${metadata.costTolerance.upperLimit}`,
-                    `Productos Consolidados: ${metadata.productCount}`,
-                    `Movimientos Consolidados: ${metadata.movementCount}`,
-                    `Campos con diferencia: ${metadata.differences.join(", ")}`
-                ].join("\n")
-            });
+            const period = DateUtils.monthName(metadata.month);
+            const productosYMovimientos = [
+                `Productos Consolidados: ${metadata.productCount}`,
+                `Movimientos Consolidados: ${metadata.movementCount}`,
+                `Campos con diferencia: ${metadata.differences.join(", ")}`
+            ];
+
+            if (metadata.differences.includes("Cantidad")) {
+                // Esperado (diagrama) = Cierre real. Encontrado (diagrama) = Fórmula.
+                const diferencia = Rule014Exporter.round(
+                    metadata.actualFinalBalance.quantity - metadata.expectedFinalBalance.quantity
+                );
+                rows.push({
+                    period,
+                    productCode: "CONSOLIDADO",
+                    productDescription: "Consolidado Mensual",
+                    inconsistencyType: "Sumatoria Consolidada - Cantidad",
+                    expectedValue: metadata.actualFinalBalance.quantity,
+                    foundValue: metadata.expectedFinalBalance.quantity,
+                    difference: diferencia,
+                    differencePercent: Rule014Exporter.percent(
+                        metadata.actualFinalBalance.quantity,
+                        diferencia
+                    ),
+                    riskLevel: result.risk_level,
+                    traceability: [
+                        `Saldo Inicial: ${metadata.initialBalance.quantity}`,
+                        `Entradas: ${metadata.totals.entry.quantity}`,
+                        `Salidas: ${metadata.totals.exit.quantity}`,
+                        `Inventario Valorizado de Cierre (Esperado): ${metadata.actualFinalBalance.quantity}`,
+                        `Resultado Fórmula Inicio+Entrada-Salida (Encontrado): ${metadata.expectedFinalBalance.quantity}`,
+                        ...productosYMovimientos
+                    ].join("\n")
+                });
+            }
+
+            if (metadata.differences.includes("Costo valorizado fuera del rango permitido")) {
+                const diferencia = Rule014Exporter.round(
+                    metadata.actualFinalBalance.totalCost - metadata.expectedFinalBalance.totalCost
+                );
+                rows.push({
+                    period,
+                    productCode: "CONSOLIDADO",
+                    productDescription: "Consolidado Mensual",
+                    inconsistencyType: "Costo Valorizado Consolidado",
+                    expectedValue: metadata.actualFinalBalance.totalCost,
+                    foundValue: metadata.expectedFinalBalance.totalCost,
+                    difference: diferencia,
+                    differencePercent: Rule014Exporter.percent(
+                        metadata.actualFinalBalance.totalCost,
+                        diferencia
+                    ),
+                    riskLevel: result.risk_level,
+                    traceability: [
+                        `Saldo Inicial: ${metadata.initialBalance.totalCost}`,
+                        `Entradas: ${metadata.totals.entry.totalCost}`,
+                        `Salidas: ${metadata.totals.exit.totalCost}`,
+                        `Inventario Valorizado de Cierre (Esperado): ${metadata.actualFinalBalance.totalCost}`,
+                        `Resultado Fórmula Inicio+Entrada-Salida (Encontrado): ${metadata.expectedFinalBalance.totalCost}`,
+                        `Rango Permitido (${metadata.costTolerance.percentage}%): ${metadata.costTolerance.lowerLimit} - ${metadata.costTolerance.upperLimit}`,
+                        ...productosYMovimientos
+                    ].join("\n")
+                });
+            }
         }
         return rows;
     }
