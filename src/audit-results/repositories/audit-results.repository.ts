@@ -215,6 +215,9 @@ export class AuditResultsRepository {
                 mode: 'insensitive'
             };
         }
+        if (dto.riskLevel) {
+            where.risk_level = dto.riskLevel;
+        }
         if (dto.search) {
             where.OR = [
                 {
@@ -288,6 +291,7 @@ export class AuditResultsRepository {
                 productName: x.product_name,
                 description: x.description,
                 recommendation: x.recommendation,
+                riskLevel: x.risk_level,
                 rule: x.audit_rules ? {
                     id: x.audit_rules.id,
                     code: x.audit_rules.code,
@@ -335,6 +339,7 @@ export class AuditResultsRepository {
             description: finding.description,
             recommendation: finding.recommendation,
             metadata: finding.metadata,
+            riskLevel: finding.risk_level,
             rule: finding.audit_rules ? {
                 id: finding.audit_rules.id,
                 code: finding.audit_rules.code,
@@ -342,7 +347,7 @@ export class AuditResultsRepository {
                 riskLevel: finding.audit_rules.risk_level
             } : null
         };
-    }    
+    }
     async getExcel(auditJobId: string, ruleId: string) {
         const auditJob = await this.prisma.audit_jobs.findUnique({
             where: {
