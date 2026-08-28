@@ -5,11 +5,18 @@ import { ReportHeader } from "./base/ReportHeader";
 import { AuditFindingRow } from "./base/AuditFindingRow";
 import { DateUtils } from "../helpers/dateutils";
 
+export interface Rule006DuplicateOccurrence {
+    date: string | null;
+    document: string;
+    movementCount: number;
+}
+
 export interface Rule006Metadata {
     source: string;
     month?: number;
     occurrences: number;
-    rows: number[];
+    rows?: number[];
+    duplicateOccurrences?: Rule006DuplicateOccurrence[];
 }
 
 export class Rule006Exporter extends BaseExcelExporter {
@@ -23,7 +30,7 @@ export class Rule006Exporter extends BaseExcelExporter {
         const worksheet = workbook.addWorksheet("RULE_006");
         this.writeHeader(
             worksheet,
-            "RULE_006 - Detección de Productos Duplicados",
+            "RULE_006 - Detección de duplicidad de códigos",
             header,
             "J"
         );
@@ -65,10 +72,19 @@ export class Rule006Exporter extends BaseExcelExporter {
                 traceability: [
                     `Origen: ${metadata.source}`,
                     `Ocurrencias: ${metadata.occurrences}`,
-                    `Filas: ${metadata.rows.join(", ")}`
+                    ...this.buildFilasLines(metadata)
                 ].join("\n")
             });
         }
         return rows;
+    }
+
+    private buildFilasLines(metadata: Rule006Metadata): string[] {
+        if (metadata.duplicateOccurrences?.length) {
+            return metadata.duplicateOccurrences.map((occ, i) =>
+                `Ocurrencia ${i + 1}: ${occ.date ?? "Sin fecha"}, Doc. ${occ.document || "Sin documento"}, ${occ.movementCount} movimiento(s)`
+            );
+        }
+        return [`Filas: ${(metadata.rows ?? []).join(", ")}`];
     }
 }

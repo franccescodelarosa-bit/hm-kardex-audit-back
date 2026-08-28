@@ -9,8 +9,7 @@ export interface Rule002Metadata {
     fromMonth: number;
     toMonth: number;
     finalQuantity: number;
-    initialQuantity: number;
-    differences: string[];
+    initialQuantity: number | null;
 }
 
 export class Rule002Exporter extends BaseExcelExporter {
@@ -48,44 +47,65 @@ export class Rule002Exporter extends BaseExcelExporter {
     }
 
     private buildFindings(results: any[]): AuditFindingRow[] {
-    const rows: AuditFindingRow[] = [];
+        const rows: AuditFindingRow[] = [];
 
-    for (const result of results) {
-        const metadata = result.metadata as Rule002Metadata;
+        for (const result of results) {
+            const metadata = result.metadata as Rule002Metadata;
 
-        rows.push({
-            period: `${DateUtils.monthName(metadata.fromMonth)} → ${DateUtils.monthName(metadata.toMonth)}`,
-            productCode: result.product_code,
-            productDescription: result.product_name,
-            inconsistencyType: "Continuidad de Cantidad",
+            const mesCierre = DateUtils.monthName(metadata.fromMonth);
+            const mesSiguiente = DateUtils.monthName(metadata.toMonth);
 
-            expectedValue: metadata.finalQuantity,
-            foundValue: metadata.initialQuantity,
+            const sinKardexSiguiente =
+                metadata.initialQuantity === null ||
+                metadata.initialQuantity === undefined;
 
-            difference:
-                metadata.finalQuantity -
-                metadata.initialQuantity,
+            const initialQuantity = sinKardexSiguiente ? 0 : metadata.initialQuantity;
 
-            differencePercent:
-                metadata.finalQuantity === 0
-                    ? 0
-                    : Math.abs(
-                        (
-                            metadata.finalQuantity -
-                            metadata.initialQuantity
-                        ) / metadata.finalQuantity
-                    ) * 100,
+            const difference = Rule002Exporter.round(
+                metadata.finalQuantity - initialQuantity!
+            );
 
-            riskLevel: result.risk_level,
+            rows.push({
+                period: `${mesCierre} → ${mesSiguiente}`,
+                productCode: result.product_code,
+                productDescription: result.product_name,
+                inconsistencyType: sinKardexSiguiente
+                    ? "Producto no encontrado en el mes siguiente"
+                    : "Continuidad de Cantidad",
 
-            traceability: [
-                `Mes Final: ${DateUtils.monthName(metadata.fromMonth)}`,
-                `Mes Inicial: ${DateUtils.monthName(metadata.toMonth)}`,
-                `Campos con diferencia: Cantidad`
-            ].join("\n")
-        });
+                expectedValue: metadata.finalQuantity,
+                foundValue: +initialQuantity!,
+
+                difference,
+
+                differencePercent:
+                    metadata.finalQuantity === 0
+                        ? 0
+                        : Math.abs(difference / metadata.finalQuantity) * 100,
+
+                riskLevel: result.risk_level,
+
+                traceability: sinKardexSiguiente
+                    ? [
+                        `Mes de Cierre: ${mesCierre}`,
+                        `Cantidad Saldo Final (${mesCierre}): ${metadata.finalQuantity}`,
+                        `Mes Siguiente: ${mesSiguiente}`,
+                        `El producto no tiene Kardex registrado en ${mesSiguiente} - no se puede validar la continuidad.`
+                    ].join("\n")
+                    : [
+                        `Mes de Cierre: ${mesCierre}`,
+                        `Cantidad Saldo Final (${mesCierre}): ${metadata.finalQuantity}`,
+                        `Mes Siguiente: ${mesSiguiente}`,
+                        `Cantidad Saldo Inicial (${mesSiguiente}): ${initialQuantity}`,
+                        `Diferencia (Cantidad): ${difference}`
+                    ].join("\n")
+            });
+        }
+
+        return rows;
     }
 
-    return rows;
-}
+    private static round(value: number): number {
+        return Math.round(value * 100) / 100;
+    }
 }

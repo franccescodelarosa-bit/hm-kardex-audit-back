@@ -55,7 +55,7 @@ export class Rule014Exporter extends BaseExcelExporter {
             workbook.addWorksheet("RULE_014");
         this.writeHeader(
             worksheet,
-            "RULE_014 - Validación Consolidada de Sumatorias Mensuales",
+            "RULE_014 - Validacion consolidada de sumatorias mensuales con la ecuacion de conciliacion global del kardex valorizado",
             header,
             "J"
         );
@@ -93,40 +93,6 @@ export class Rule014Exporter extends BaseExcelExporter {
         for (const result of results) {
             const metadata = result.metadata as Rule014Metadata;
             const period = DateUtils.monthName(metadata.month);
-            const productosYMovimientos = [
-                `Productos Consolidados: ${metadata.productCount}`,
-                `Movimientos Consolidados: ${metadata.movementCount}`,
-                `Campos con diferencia: ${metadata.differences.join(", ")}`
-            ];
-
-            if (metadata.differences.includes("Cantidad")) {
-                // Esperado (diagrama) = Cierre real. Encontrado (diagrama) = Fórmula.
-                const diferencia = Rule014Exporter.round(
-                    metadata.actualFinalBalance.quantity - metadata.expectedFinalBalance.quantity
-                );
-                rows.push({
-                    period,
-                    productCode: "CONSOLIDADO",
-                    productDescription: "Consolidado Mensual",
-                    inconsistencyType: "Sumatoria Consolidada - Cantidad",
-                    expectedValue: metadata.actualFinalBalance.quantity,
-                    foundValue: metadata.expectedFinalBalance.quantity,
-                    difference: diferencia,
-                    differencePercent: Rule014Exporter.percent(
-                        metadata.actualFinalBalance.quantity,
-                        diferencia
-                    ),
-                    riskLevel: result.risk_level,
-                    traceability: [
-                        `Saldo Inicial: ${metadata.initialBalance.quantity}`,
-                        `Entradas: ${metadata.totals.entry.quantity}`,
-                        `Salidas: ${metadata.totals.exit.quantity}`,
-                        `Inventario Valorizado de Cierre (Esperado): ${metadata.actualFinalBalance.quantity}`,
-                        `Resultado Fórmula Inicio+Entrada-Salida (Encontrado): ${metadata.expectedFinalBalance.quantity}`,
-                        ...productosYMovimientos
-                    ].join("\n")
-                });
-            }
 
             if (metadata.differences.includes("Costo valorizado fuera del rango permitido")) {
                 const diferencia = Rule014Exporter.round(
@@ -136,7 +102,7 @@ export class Rule014Exporter extends BaseExcelExporter {
                     period,
                     productCode: "CONSOLIDADO",
                     productDescription: "Consolidado Mensual",
-                    inconsistencyType: "Costo Valorizado Consolidado",
+                    inconsistencyType: "Costo valorizado fuera del rango permitido",
                     expectedValue: metadata.actualFinalBalance.totalCost,
                     foundValue: metadata.expectedFinalBalance.totalCost,
                     difference: diferencia,
@@ -151,8 +117,10 @@ export class Rule014Exporter extends BaseExcelExporter {
                         `Salidas: ${metadata.totals.exit.totalCost}`,
                         `Inventario Valorizado de Cierre (Esperado): ${metadata.actualFinalBalance.totalCost}`,
                         `Resultado Fórmula Inicio+Entrada-Salida (Encontrado): ${metadata.expectedFinalBalance.totalCost}`,
-                        `Rango Permitido (${metadata.costTolerance.percentage}%): ${metadata.costTolerance.lowerLimit} - ${metadata.costTolerance.upperLimit}`,
-                        ...productosYMovimientos
+                        `Tolerancia: Sin tolerancia (debe coincidir exacto, sin ningún margen)`,
+                        `Productos Consolidados: ${metadata.productCount}`,
+                        `Movimientos Consolidados: ${metadata.movementCount}`,
+                        `Campos con diferencia: Costo valorizado fuera del rango permitido`
                     ].join("\n")
                 });
             }

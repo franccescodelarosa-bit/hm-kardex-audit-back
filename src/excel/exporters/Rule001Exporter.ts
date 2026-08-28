@@ -203,7 +203,7 @@ export class Rule001Exporter extends BaseExcelExporter {
                         result.product_name,
 
                     inconsistencyType:
-                        "Stock Final",
+                        "Cantidad",
 
                     expectedValue:
                         metadata.inventoryStock ?? 0,

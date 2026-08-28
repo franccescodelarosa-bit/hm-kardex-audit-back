@@ -1,0 +1,162 @@
+
+import { Rule004Exporter } from "./Rule004Exporter";
+import { ReportHeader } from "./base/ReportHeader";
+
+const header: ReportHeader = {
+    companyName: "COMERCIAL L&M EIRL",
+    ruc: "20451412508",
+    year: 2024
+};
+
+/**
+ * Columnas propias de RULE_004 (no usa las 10 genéricas de BaseExcelExporter
+ * -- confirmado con la usuaria: Fecha Emisión, Fecha Almacén, RUC, Proveedor,
+ * Documento y Documento Normalizado pasan a ser columnas visibles, no texto
+ * adentro de Trazabilidad):
+ *   1 Periodo | 2 Fecha Emisión | 3 Fecha Almacén | 4 RUC Proveedor |
+ *   5 Proveedor | 6 Documento | 7 Documento Normalizado |
+ *   8 Código del producto | 9 Descripción | 10 Tipo de inconsistencia |
+ *   11 Valor esperado | 12 Valor encontrado | 13 Diferencia |
+ *   14 % Diferencia | 15 Nivel de riesgo | 16 Trazabilidad
+ */
+describe("Rule004Exporter", () => {
+    it("Fecha Emisión, Fecha Almacén, RUC, Proveedor, Documento y Documento Normalizado ahora son columnas propias", async () => {
+        const exporter = new Rule004Exporter();
+        const results = [
+            {
+                risk_level: "MEDIO",
+                metadata: {
+                    transitItem: "2024-01-06",
+                    issueDate: "2023-12-06",
+                    warehouseDate: "2024-01-04",
+                    supplierRuc: "20136836545",
+                    supplier: "ARDILES SAC",
+                    document: "Fac-F001-501064",
+                    normalizedDocument: "F00100501064",
+                    month: 1,
+                    expectedCost: 850,
+                    foundCost: 820,
+                    evaluatedProducts: [
+                        { code: "000123", description: "PEGAMENTO X", cost: 500 },
+                        { code: "000456", description: "TORNILLO Y", cost: 320 }
+                    ]
+                }
+            }
+        ];
+
+        const workbook = await exporter.export(results, header);
+        const sheet = workbook.worksheets[0];
+
+        expect(sheet.getRow(5).getCell(2).value).toBe("2023-12-06");
+        expect(sheet.getRow(5).getCell(3).value).toBe("2024-01-04");
+        expect(sheet.getRow(5).getCell(4).value).toBe("20136836545");
+        expect(sheet.getRow(5).getCell(5).value).toBe("ARDILES SAC");
+        expect(sheet.getRow(5).getCell(6).value).toBe("Fac-F001-501064");
+        expect(sheet.getRow(5).getCell(7).value).toBe("F00100501064");
+    });
+
+    it("codigo/descripcion (con comas), esperado/encontrado y tipo de inconsistencia siguen en su lugar, corridos por las columnas nuevas", async () => {
+        const exporter = new Rule004Exporter();
+        const results = [
+            {
+                risk_level: "MEDIO",
+                metadata: {
+                    transitItem: "2024-01-06",
+                    issueDate: "2023-12-06",
+                    warehouseDate: "2024-01-04",
+                    supplierRuc: "20136836545",
+                    supplier: "ARDILES SAC",
+                    document: "Fac-F001-501064",
+                    normalizedDocument: "F00100501064",
+                    month: 1,
+                    expectedCost: 850,
+                    foundCost: 820,
+                    evaluatedProducts: [
+                        { code: "000123", description: "PEGAMENTO X", cost: 500 },
+                        { code: "000456", description: "TORNILLO Y", cost: 320 }
+                    ]
+                }
+            }
+        ];
+
+        const workbook = await exporter.export(results, header);
+        const sheet = workbook.worksheets[0];
+
+        expect(sheet.getRow(5).getCell(8).value).toBe("000123, 000456");
+        expect(sheet.getRow(5).getCell(9).value).toBe("PEGAMENTO X, TORNILLO Y");
+        expect(sheet.getRow(5).getCell(10).value).toBe("Mercadería en tránsito no registrada");
+        expect(sheet.getRow(5).getCell(11).value).toBe(850); // esperado
+        expect(sheet.getRow(5).getCell(12).value).toBe(820); // encontrado
+
+        const trace = String(sheet.getRow(5).getCell(16).value);
+        expect(trace).not.toContain("undefined");
+        expect(trace).toContain("Productos Encontrados: 000123 - PEGAMENTO X, 000456 - TORNILLO Y");
+        // Ya no se repiten en la trazabilidad -- ahora son columnas propias
+        expect(trace).not.toContain("RUC:");
+        expect(trace).not.toContain("Proveedor:");
+    });
+
+    it("si no se encontro ningun producto por los codigos adquiridos, la lista queda vacia sin romper nada", async () => {
+        const exporter = new Rule004Exporter();
+        const results = [
+            {
+                risk_level: "MEDIO",
+                metadata: {
+                    transitItem: "2024-03-10",
+                    issueDate: "2024-02-01",
+                    warehouseDate: "2024-03-05",
+                    supplierRuc: "20999999999",
+                    supplier: "PROVEEDOR SIN MATCH",
+                    document: "Fac-F001-9999",
+                    normalizedDocument: "F00100009999",
+                    month: 3,
+                    expectedCost: 500,
+                    foundCost: 0,
+                    evaluatedProducts: []
+                }
+            }
+        ];
+
+        const workbook = await exporter.export(results, header);
+        const sheet = workbook.worksheets[0];
+
+        expect(String(sheet.getRow(5).getCell(8).value)).toBe("");
+        expect(String(sheet.getRow(5).getCell(9).value)).toBe("");
+        expect(sheet.getRow(5).getCell(12).value).toBe(0);
+    });
+
+    it("documento SI encontrado, con validacion de costo -- muestra INCIDENCIA/ACEPTADA, no la etiqueta de 'no registrada'", async () => {
+        const exporter = new Rule004Exporter();
+        const results = [
+            {
+                risk_level: "MEDIO",
+                metadata: {
+                    transitItem: "2024-01-06",
+                    issueDate: "2023-12-06",
+                    warehouseDate: "2024-01-04",
+                    supplierRuc: "20136836545",
+                    supplier: "ARDILES SAC",
+                    document: "Fac-F001-501064",
+                    normalizedDocument: "F00100501064",
+                    month: 1,
+                    expectedCost: 850,
+                    foundCost: 500,
+                    isIncident: true,
+                    thresholdPercent: 5,
+                    evaluatedProducts: [
+                        { code: "000123", description: "PEGAMENTO X", cost: 500 }
+                    ]
+                }
+            }
+        ];
+
+        const workbook = await exporter.export(results, header);
+        const sheet = workbook.worksheets[0];
+
+        expect(sheet.getRow(5).getCell(10).value).toBe("INCIDENCIA");
+        expect(sheet.getRow(5).getCell(10).value).not.toBe("Mercadería en tránsito no registrada");
+
+        const trace = String(sheet.getRow(5).getCell(16).value);
+        expect(trace).toContain("Umbral permitido: 5");
+    });
+});

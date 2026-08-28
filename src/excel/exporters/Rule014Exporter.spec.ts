@@ -24,7 +24,7 @@ function baseMetadata(overrides: Partial<any> = {}) {
         difference: { quantity: -67, totalCost: -8642.2 },
         productCount: 40985,
         movementCount: 52422,
-        differences: ["Cantidad", "Costo valorizado fuera del rango permitido"],
+        differences: ["Costo valorizado fuera del rango permitido"],
         ...overrides
     };
 }
@@ -37,50 +37,44 @@ describe("Rule014Exporter", () => {
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
 
-        // Fila de Cantidad (5)
-        expect(sheet.getRow(5).getCell(5).value).toBe(231100); // Valor esperado = Cierre real
-        expect(sheet.getRow(5).getCell(6).value).toBe(231033); // Valor encontrado = Formula
-
-        // Fila de Costo (6)
-        expect(sheet.getRow(6).getCell(5).value).toBe(990339.13); // Valor esperado = Cierre real
-        expect(sheet.getRow(6).getCell(6).value).toBe(981696.93); // Valor encontrado = Formula
+        expect(sheet.getRow(5).getCell(5).value).toBe(990339.13); // Valor esperado = Cierre real
+        expect(sheet.getRow(5).getCell(6).value).toBe(981696.93); // Valor encontrado = Formula
     });
 
-    it("si SOLO el Costo esta mal (Cantidad cierra bien), muestra 1 sola fila -- no la fantasma de Cantidad", async () => {
-        const exporter = new Rule014Exporter();
-        const results = [{
-            risk_level: "CRITICO",
-            metadata: baseMetadata({ differences: ["Costo valorizado fuera del rango permitido"] })
-        }];
-
-        const workbook = await exporter.export(results, header);
-        const sheet = workbook.worksheets[0];
-
-        expect(sheet.rowCount).toBe(5); // 4 de header + 1 de datos
-        expect(sheet.getRow(5).getCell(4).value).toBe("Costo Valorizado Consolidado");
-    });
-
-    it("si SOLO la Cantidad esta mal (Costo cierra bien), muestra 1 sola fila -- no la fantasma de Costo", async () => {
-        const exporter = new Rule014Exporter();
-        const results = [{
-            risk_level: "CRITICO",
-            metadata: baseMetadata({ differences: ["Cantidad"] })
-        }];
-
-        const workbook = await exporter.export(results, header);
-        const sheet = workbook.worksheets[0];
-
-        expect(sheet.rowCount).toBe(5);
-        expect(sheet.getRow(5).getCell(4).value).toBe("Sumatoria Consolidada - Cantidad");
-    });
-
-    it("si las dos fallan, muestra las 2 filas (comportamiento real de todos los hallazgos actuales)", async () => {
+    it("YA NO existe la fila de Cantidad -- RULE_014 solo valida costo (confirmado contra el diagrama y el Anexo 03)", async () => {
         const exporter = new Rule014Exporter();
         const results = [{ risk_level: "CRITICO", metadata: baseMetadata() }];
 
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
 
-        expect(sheet.rowCount).toBe(6);
+        expect(sheet.rowCount).toBe(5); // 4 de header + 1 sola fila (costo)
+        expect(sheet.getRow(5).getCell(4).value).not.toBe("Sumatoria Consolidada - Cantidad");
+    });
+
+    it("'Tipo de inconsistencia' coincide con 'Campos con diferencia' -- mismo nombre en los dos lados", async () => {
+        const exporter = new Rule014Exporter();
+        const results = [{ risk_level: "CRITICO", metadata: baseMetadata() }];
+
+        const workbook = await exporter.export(results, header);
+        const sheet = workbook.worksheets[0];
+
+        const tipo = sheet.getRow(5).getCell(4).value;
+        const trace = String(sheet.getRow(5).getCell(10).value);
+
+        expect(tipo).toBe("Costo valorizado fuera del rango permitido");
+        expect(trace).toContain(`Campos con diferencia: ${tipo}`);
+    });
+
+    it("'Rango Permitido' ya no muestra el mismo numero repetido como si fuera un rango -- ahora es un texto claro (0% tolerancia = sin tolerancia)", async () => {
+        const exporter = new Rule014Exporter();
+        const results = [{ risk_level: "CRITICO", metadata: baseMetadata() }];
+
+        const workbook = await exporter.export(results, header);
+        const sheet = workbook.worksheets[0];
+        const trace = String(sheet.getRow(5).getCell(10).value);
+
+        expect(trace).not.toContain("981696.93 - 981696.93");
+        expect(trace).toContain("Sin tolerancia");
     });
 });

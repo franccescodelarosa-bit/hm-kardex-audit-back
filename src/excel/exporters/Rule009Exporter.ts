@@ -28,7 +28,7 @@ export class Rule009Exporter extends BaseExcelExporter {
         const worksheet = workbook.addWorksheet("RULE_009");
         this.writeHeader(
             worksheet,
-            "RULE_009 - Ingresos por Ajuste de Inventario",
+            "RULE_009 - Deteccion de Entradas excesivas (sobrantes) sin sustento documentario",
             header,
             "J"
         );

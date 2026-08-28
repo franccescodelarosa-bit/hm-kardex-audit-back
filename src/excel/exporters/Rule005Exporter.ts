@@ -37,7 +37,7 @@ export class Rule005Exporter extends BaseExcelExporter {
         const worksheet = workbook.addWorksheet("RULE_005");
         this.writeHeader(
             worksheet,
-            "RULE_005 - Validación de Saldos Negativos",
+            "RULE_005 - Detección de saldos negativos en cantidad, costo unitario y costo total",
             header,
             "J"
         );
@@ -74,7 +74,7 @@ export class Rule005Exporter extends BaseExcelExporter {
                         `Documento: ${metadata.document}`,
                         `Operación: ${metadata.operation}`,
                         `Fecha: ${metadata.date}`,
-                        `Campos Negativos: ${metadata.negatives?.join(", ")}`
+                        `Campos Negativos: ${negative}`
                     ].join("\n")
                 });
             }
@@ -82,37 +82,37 @@ export class Rule005Exporter extends BaseExcelExporter {
         return rows;
     }
 
+    private static readonly FIELD_BY_LABEL: Record<string, keyof Rule005Metadata> = {
+        "Cantidad de Entrada": "entryQuantity",
+        "Costo Unitario de Entrada": "entryUnitCost",
+        "Costo Total de Entrada": "entryTotalCost",
+        "Cantidad de Salida": "exitQuantity",
+        "Costo Unitario de Salida": "exitUnitCost",
+        "Costo Total de Salida": "exitTotalCost",
+        "Cantidad de Saldo": "balanceQuantity",
+        "Costo Unitario de Saldo": "balanceUnitCost",
+        "Costo Total de Saldo": "balanceTotalCost",
+
+        // Etiquetas viejas (compatibilidad hacia atrás)
+        "Cantidad Entrada": "entryQuantity",
+        "Costo Entrada": "entryUnitCost",
+        "Total Entrada": "entryTotalCost",
+        "Cantidad Salida": "exitQuantity",
+        "Costo Salida": "exitUnitCost",
+        "Total Salida": "exitTotalCost",
+        "Cantidad Saldo": "balanceQuantity",
+        "Costo Saldo": "balanceUnitCost",
+        "Total Saldo": "balanceTotalCost"
+    };
+
     private getNegativeValue(
         metadata: Rule005Metadata,
         field: string
     ): number | string {
-        switch (field) {
-            case "stock":
-                return metadata.stock ?? "";
-            case "unitCost":
-                return metadata.unitCost ?? "";
-            case "totalCost":
-                return metadata.totalCost ?? "";
-            case "balanceQuantity":
-                return metadata.balanceQuantity ?? "";
-            case "balanceUnitCost":
-                return metadata.balanceUnitCost ?? "";
-            case "balanceTotalCost":
-                return metadata.balanceTotalCost ?? "";
-            case "entryQuantity":
-                return metadata.entryQuantity ?? "";
-            case "entryUnitCost":
-                return metadata.entryUnitCost ?? "";
-            case "entryTotalCost":
-                return metadata.entryTotalCost ?? "";
-            case "exitQuantity":
-                return metadata.exitQuantity ?? "";
-            case "exitUnitCost":
-                return metadata.exitUnitCost ?? "";
-            case "exitTotalCost":
-                return metadata.exitTotalCost ?? "";
-            default:
-                return "";
+        const key = Rule005Exporter.FIELD_BY_LABEL[field];
+        if (!key) {
+            return "";
         }
+        return (metadata[key] as number | undefined) ?? "";
     }
 }
