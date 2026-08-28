@@ -24,6 +24,10 @@ export interface Rule004Metadata {
     evaluatedProducts: Rule004EvaluatedProduct[];
     isIncident?: boolean;
     thresholdPercent?: number;
+    //no hay con que comparar
+    noEvaluable?: boolean;
+    //por doc
+    usedFallback?: boolean;
 }
 
 interface Rule004Row {
@@ -169,6 +173,7 @@ export class Rule004Exporter extends BaseExcelExporter {
             const productosEncontrados = this.buildProductosEncontrados(metadata);
 
             const esValidacionDeCosto = metadata.isIncident !== undefined;
+            const noEvaluable = metadata.noEvaluable === true;
 
             rows.push({
                 period: metadata.month ? DateUtils.monthName(Number(metadata.month)) : "Sin período",
@@ -180,9 +185,11 @@ export class Rule004Exporter extends BaseExcelExporter {
                 normalizedDocument: metadata.normalizedDocument,
                 productCode: evaluatedProducts.map(p => p.code).join(", "),
                 productDescription: evaluatedProducts.map(p => p.description).join(", "),
-                inconsistencyType: esValidacionDeCosto
-                    ? (metadata.isIncident ? "INCIDENCIA" : "ACEPTADA")
-                    : "Mercadería en tránsito no registrada",
+                inconsistencyType: !esValidacionDeCosto
+                    ? "Mercadería en tránsito no registrada"
+                    : noEvaluable
+                        ? "Sin datos suficientes para evaluar el costo"
+                        : (metadata.isIncident ? "INCIDENCIA" : "ACEPTADA"),
                 expectedValue: metadata.expectedCost,
                 foundValue: metadata.foundCost,
                 difference: metadata.expectedCost - metadata.foundCost,
@@ -202,7 +209,8 @@ export class Rule004Exporter extends BaseExcelExporter {
                     ...(esValidacionDeCosto
                         ? [
                             `Umbral permitido: ${metadata.thresholdPercent}%`,
-                            `Resultado: ${metadata.isIncident ? "INCIDENCIA" : "ACEPTADA"}`
+                            `Fuente de búsqueda: ${metadata.usedFallback ? "Documento (fallback -- no había Códigos Adquiridos)" : "Códigos Adquiridos"}`,
+                            `Resultado: ${noEvaluable ? "SIN DATOS PARA EVALUAR" : (metadata.isIncident ? "INCIDENCIA" : "ACEPTADA")}`
                         ]
                         : [])
                 ].join("\n")

@@ -125,6 +125,115 @@ describe("Rule004Exporter", () => {
         expect(sheet.getRow(5).getCell(12).value).toBe(0);
     });
 
+    it("noEvaluable=true (ni por codigo ni por documento se encontro nada) -- muestra etiqueta propia, no INCIDENCIA", async () => {
+        const exporter = new Rule004Exporter();
+        const results = [
+            {
+                risk_level: "MEDIO",
+                metadata: {
+                    transitItem: "2024-01-05",
+                    issueDate: "2023-12-20",
+                    warehouseDate: "2024-01-05",
+                    supplierRuc: "20999999999",
+                    supplier: "PROVEEDOR SIN DATOS",
+                    document: "Fac-E001-9000",
+                    normalizedDocument: "E00100009000",
+                    month: 1,
+                    expectedCost: 500,
+                    foundCost: 0,
+                    isIncident: false,
+                    noEvaluable: true,
+                    usedFallback: true,
+                    thresholdPercent: 5,
+                    evaluatedProducts: []
+                }
+            }
+        ];
+
+        const workbook = await exporter.export(results, header);
+        const sheet = workbook.worksheets[0];
+
+        const tipo = String(sheet.getRow(5).getCell(10).value);
+        expect(tipo).not.toBe("INCIDENCIA");
+        expect(tipo).not.toBe("Mercadería en tránsito no registrada");
+        expect(tipo).toBe("Sin datos suficientes para evaluar el costo");
+
+        const trace = String(sheet.getRow(5).getCell(16).value);
+        expect(trace).toContain("Fuente de búsqueda: Documento (fallback -- no había Códigos Adquiridos)");
+        expect(trace).toContain("SIN DATOS PARA EVALUAR");
+    });
+
+    it("usedFallback=true (encontro por documento, no por codigo) -- la trazabilidad lo dice explicitamente", async () => {
+        const exporter = new Rule004Exporter();
+        const results = [
+            {
+                risk_level: "BAJO",
+                metadata: {
+                    transitItem: "2024-01-13",
+                    issueDate: "2023-12-24",
+                    warehouseDate: "2024-01-13",
+                    supplierRuc: "10442286260",
+                    supplier: "ESTELA VILCHEZ ELISA",
+                    document: "Fac-E001-1007",
+                    normalizedDocument: "E00100001007",
+                    month: 1,
+                    expectedCost: 650,
+                    foundCost: 650,
+                    isIncident: false,
+                    noEvaluable: false,
+                    usedFallback: true,
+                    thresholdPercent: 5,
+                    evaluatedProducts: [
+                        { code: "000123", description: "PRODUCTO REAL", cost: 650 }
+                    ]
+                }
+            }
+        ];
+
+        const workbook = await exporter.export(results, header);
+        const sheet = workbook.worksheets[0];
+
+        expect(sheet.getRow(5).getCell(10).value).toBe("ACEPTADA");
+
+        const trace = String(sheet.getRow(5).getCell(16).value);
+        expect(trace).toContain("Fuente de búsqueda: Documento (fallback -- no había Códigos Adquiridos)");
+    });
+
+    it("usedFallback=false (encontro directo por codigo adquirido) -- la trazabilidad tambien lo dice", async () => {
+        const exporter = new Rule004Exporter();
+        const results = [
+            {
+                risk_level: "BAJO",
+                metadata: {
+                    transitItem: "2024-01-08",
+                    issueDate: "2023-12-01",
+                    warehouseDate: "2024-01-08",
+                    supplierRuc: "20136836545",
+                    supplier: "ARDILES SAC",
+                    document: "Fac-F001-7000",
+                    normalizedDocument: "F00100007000",
+                    month: 1,
+                    expectedCost: 200,
+                    foundCost: 200,
+                    isIncident: false,
+                    noEvaluable: false,
+                    usedFallback: false,
+                    thresholdPercent: 5,
+                    evaluatedProducts: [
+                        { code: "000500", description: "PRODUCTO POR CODIGO", cost: 200 }
+                    ]
+                }
+            }
+        ];
+
+        const workbook = await exporter.export(results, header);
+        const sheet = workbook.worksheets[0];
+
+        const trace = String(sheet.getRow(5).getCell(16).value);
+        expect(trace).toContain("Fuente de búsqueda: Códigos Adquiridos");
+        expect(trace).not.toContain("fallback");
+    });
+
     it("documento SI encontrado, con validacion de costo -- muestra INCIDENCIA/ACEPTADA, no la etiqueta de 'no registrada'", async () => {
         const exporter = new Rule004Exporter();
         const results = [
