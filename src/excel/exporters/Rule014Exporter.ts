@@ -112,6 +112,7 @@ export class Rule014Exporter extends BaseExcelExporter {
                     ),
                     riskLevel: result.risk_level,
                     traceability: [
+                        "ERROR DE CONSOLIDACIÓN DEL KARDEX Y LA DIFERENCIA",
                         `Saldo Inicial: ${metadata.initialBalance.totalCost}`,
                         `Entradas: ${metadata.totals.entry.totalCost}`,
                         `Salidas: ${metadata.totals.exit.totalCost}`,

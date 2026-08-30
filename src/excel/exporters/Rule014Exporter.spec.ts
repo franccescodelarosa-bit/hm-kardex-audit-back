@@ -77,4 +77,15 @@ describe("Rule014Exporter", () => {
         expect(trace).not.toContain("981696.93 - 981696.93");
         expect(trace).toContain("Sin tolerancia");
     });
+
+    it("la trazabilidad incluye el mensaje literal exigido por el Anexo 03: 'ERROR DE CONSOLIDACIÓN DEL KARDEX Y LA DIFERENCIA'", async () => {
+        const exporter = new Rule014Exporter();
+        const results = [{ risk_level: "CRITICO", metadata: baseMetadata() }];
+
+        const workbook = await exporter.export(results, header);
+        const sheet = workbook.worksheets[0];
+        const trace = String(sheet.getRow(5).getCell(10).value);
+
+        expect(trace).toContain("ERROR DE CONSOLIDACIÓN DEL KARDEX Y LA DIFERENCIA");
+    });
 });
