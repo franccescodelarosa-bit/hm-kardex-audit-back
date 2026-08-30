@@ -26,7 +26,10 @@ describe("Rule006Exporter", () => {
                     source: "KARDEX",
                     month: 1,
                     occurrences: 2,
-                    rows: []
+                    duplicateOccurrences: [
+                        { date: "2024-01-01", document: "00 Saldo Inicial", movementCount: 1 },
+                        { date: "2024-01-01", document: "00 Saldo Inicial", movementCount: 2 }
+                    ]
                 }
             }
         ];
@@ -58,5 +61,55 @@ describe("Rule006Exporter", () => {
         const periodo = sheet.getRow(5).getCell(1).value;
 
         expect(periodo).toBe("-");
+    });
+
+    it("trazabilidad de KARDEX (Opción A): identifica cada ocurrencia por fecha/documento/movimientos, ya no sale 'Filas: ' vacío", async () => {
+        const exporter = new Rule006Exporter();
+        const results = [
+            {
+                product_code: "0000000001",
+                product_name: "PRODUCTO A",
+                risk_level: "MEDIO",
+                metadata: {
+                    source: "KARDEX",
+                    month: 1,
+                    occurrences: 2,
+                    duplicateOccurrences: [
+                        { date: "2024-01-01", document: "00 Saldo Inicial", movementCount: 1 },
+                        { date: "2024-01-01", document: "00 Saldo Inicial", movementCount: 2 }
+                    ]
+                }
+            }
+        ];
+
+        const workbook = await exporter.export(results, header);
+        const sheet = workbook.worksheets[0];
+        const traceability = String(sheet.getRow(5).getCell(10).value);
+
+        expect(traceability).toContain("Ocurrencia 1: 2024-01-01, Doc. 00 Saldo Inicial, 1 movimiento(s)");
+        expect(traceability).toContain("Ocurrencia 2: 2024-01-01, Doc. 00 Saldo Inicial, 2 movimiento(s)");
+        expect(traceability).not.toContain("Filas:");
+    });
+
+    it("trazabilidad de INVENTARIO sigue mostrando 'Filas: <items>' como antes (esa ruta no se tocó)", async () => {
+        const exporter = new Rule006Exporter();
+        const results = [
+            {
+                product_code: "0000000073",
+                product_name: "PRODUCTO X",
+                risk_level: "MEDIO",
+                metadata: {
+                    source: "INVENTARIO_INICIAL",
+                    occurrences: 2,
+                    rows: [10, 25]
+                }
+            }
+        ];
+
+        const workbook = await exporter.export(results, header);
+        const sheet = workbook.worksheets[0];
+        const traceability = String(sheet.getRow(5).getCell(10).value);
+
+        expect(traceability).toContain("Filas: 10, 25");
     });
 });

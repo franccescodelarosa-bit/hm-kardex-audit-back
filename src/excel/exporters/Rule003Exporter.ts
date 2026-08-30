@@ -12,13 +12,13 @@ export interface Rule003Metadata {
         quantity: number;
         unitCost: number;
         totalCost: number;
-    };
+    } | null;
     initialBalance: {
         quantity: number;
         unitCost: number;
         totalCost: number;
-    };
-    differences: string[];
+    } | null;
+    differences?: string[];
 }
 export class Rule003Exporter extends BaseExcelExporter {
     async export(
@@ -58,67 +58,91 @@ export class Rule003Exporter extends BaseExcelExporter {
         const rows: AuditFindingRow[] = [];
         for (const result of results) {
             const metadata = result.metadata as Rule003Metadata;
-            // COSTO UNITARIO
+            const mesCierre = DateUtils.monthName(metadata.fromIndex);
+            const mesInicio = DateUtils.monthName(metadata.toIndex);
+
+            if (!metadata.initialBalance) {
+                rows.push({
+                    period: `${mesCierre} → ${mesInicio}`,
+                    productCode: result.product_code,
+                    productDescription: result.product_name,
+                    inconsistencyType: "Producto no encontrado en el mes siguiente",
+                    expectedValue: metadata.finalBalance?.totalCost ?? 0,
+                    foundValue: 0,
+                    difference: metadata.finalBalance?.totalCost ?? 0,
+                    differencePercent: 0,
+                    riskLevel: result.risk_level,
+                    traceability: [
+                        `Mes de Cierre: ${mesCierre}`,
+                        `Costo Total Final (${mesCierre}): ${metadata.finalBalance?.totalCost ?? 0}`,
+                        `Mes Siguiente: ${mesInicio}`,
+                        `El producto no tiene Kardex registrado en ${mesInicio} — no se puede validar la continuidad.`
+                    ].join("\n")
+                });
+                continue;
+            }
+
+            const finalBalance = metadata.finalBalance!;
+            const initialBalance = metadata.initialBalance;
+
             rows.push({
-                period:
-                    `${DateUtils.monthName(metadata.fromIndex)} → ${DateUtils.monthName(metadata.toIndex)}`,
+                period: `${mesCierre} → ${mesInicio}`,
                 productCode: result.product_code,
                 productDescription: result.product_name,
                 inconsistencyType: "Continuidad de Costo Unitario",
-                expectedValue: metadata.finalBalance.unitCost,
-                foundValue: metadata.initialBalance.unitCost,
+                expectedValue: finalBalance.unitCost,
+                foundValue: initialBalance.unitCost,
                 difference:
-                    metadata.finalBalance.unitCost -
-                    metadata.initialBalance.unitCost,
+                    finalBalance.unitCost -
+                    initialBalance.unitCost,
                 differencePercent:
-                    metadata.finalBalance.unitCost === 0
+                    finalBalance.unitCost === 0
                         ? 0
                         : Math.abs(
                             (
-                                metadata.finalBalance.unitCost -
-                                metadata.initialBalance.unitCost
+                                finalBalance.unitCost -
+                                initialBalance.unitCost
                             ) /
-                            metadata.finalBalance.unitCost
+                            finalBalance.unitCost
                         ) * 100,
                 riskLevel: result.risk_level,
                 traceability: [
-                    `Mes Cierre: ${DateUtils.monthName(metadata.fromIndex)}`,
-                    `Mes Inicio: ${DateUtils.monthName(metadata.toIndex)}`,
-                    `Costo Unitario Final: ${metadata.finalBalance.unitCost}`,
-                    `Costo Unitario Inicial: ${metadata.initialBalance.unitCost}`,
-                    `Campos con diferencia: ${metadata.differences.join(", ")}`
+                    `Mes Cierre: ${mesCierre}`,
+                    `Mes Inicio: ${mesInicio}`,
+                    `Costo Unitario Final: ${finalBalance.unitCost}`,
+                    `Costo Unitario Inicial: ${initialBalance.unitCost}`,
+                    `Campos con diferencia: Costo Unitario`
                 ].join("\n")
             });
 
-            // COSTO TOTAL
+            // COSTO TOTAL -- también siempre visible, misma decisión que arriba.
             rows.push({
-                period:
-                    `${DateUtils.monthName(metadata.fromIndex)} → ${DateUtils.monthName(metadata.toIndex)}`,
+                period: `${mesCierre} → ${mesInicio}`,
                 productCode: result.product_code,
                 productDescription: result.product_name,
                 inconsistencyType: "Continuidad de Costo Total",
-                expectedValue: metadata.finalBalance.totalCost,
-                foundValue: metadata.initialBalance.totalCost,
+                expectedValue: finalBalance.totalCost,
+                foundValue: initialBalance.totalCost,
                 difference:
-                    metadata.finalBalance.totalCost -
-                    metadata.initialBalance.totalCost,
+                    finalBalance.totalCost -
+                    initialBalance.totalCost,
                 differencePercent:
-                    metadata.finalBalance.totalCost === 0
+                    finalBalance.totalCost === 0
                         ? 0
                         : Math.abs(
                             (
-                                metadata.finalBalance.totalCost -
-                                metadata.initialBalance.totalCost
+                                finalBalance.totalCost -
+                                initialBalance.totalCost
                             ) /
-                            metadata.finalBalance.totalCost
+                            finalBalance.totalCost
                         ) * 100,
                 riskLevel: result.risk_level,
                 traceability: [
-                    `Mes Cierre: ${DateUtils.monthName(metadata.fromIndex)}`,
-                    `Mes Inicio: ${DateUtils.monthName(metadata.toIndex)}`,
-                    `Costo Total Final: ${metadata.finalBalance.totalCost}`,
-                    `Costo Total Inicial: ${metadata.initialBalance.totalCost}`,
-                    `Campos con diferencia: ${metadata.differences.join(", ")}`
+                    `Mes Cierre: ${mesCierre}`,
+                    `Mes Inicio: ${mesInicio}`,
+                    `Costo Total Final: ${finalBalance.totalCost}`,
+                    `Costo Total Inicial: ${initialBalance.totalCost}`,
+                    `Campos con diferencia: Costo Total`
                 ].join("\n")
             });
         }

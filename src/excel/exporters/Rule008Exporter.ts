@@ -20,7 +20,7 @@ export class Rule008Exporter extends BaseExcelExporter {
         const worksheet = workbook.addWorksheet("RULE_008");
         this.writeHeader(
             worksheet,
-            "RULE_008 - Productos No Encontrados en el Maestro",
+            "RULE_008 - Validación de códigos inexistentes al cierre del año",
             header,
             "J"
         );
