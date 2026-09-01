@@ -26,7 +26,7 @@ export class Rule011Exporter extends BaseExcelExporter {
         const worksheet = workbook.addWorksheet("RULE_011");
         this.writeHeader(
             worksheet,
-            "RULE_011 - Variación Inusual del Costo Unitario",
+            "RULE_011 - Deteccion de Variación inusual de costos unitarios",
             header,
             "J"
         );
