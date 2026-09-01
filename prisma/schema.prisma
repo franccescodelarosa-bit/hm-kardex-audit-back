@@ -61,6 +61,8 @@ model audit_results {
   created_at     DateTime?    @default(now()) @db.Timestamptz(6)
   audit_jobs     audit_jobs   @relation(fields: [audit_job_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   audit_rules    audit_rules? @relation(fields: [rule_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([audit_job_id, rule_id])
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.

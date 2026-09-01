@@ -38,50 +38,24 @@ export class AuditResultsRepository {
             };
         });
     }
-    async getDashboard(auditJobId: string) {
-        const audit = await this.prisma.audit_jobs.findUnique({
-            where: {
-                id: auditJobId
-            },
-            include: {
-                clients: true,
-                audit_results: {
-                    include: {
-                        audit_rules: true
-                    }
-                }
-            }
-        });
-        if (!audit) {
-            return null;
-        }
-        const high = audit.audit_results.filter(x => x.audit_rules?.risk_level === 'CRITICO').length;
-        const medium = audit.audit_results.filter(x => x.audit_rules?.risk_level === 'ALTO').length;
-        const low = audit.audit_results.filter(x => x.audit_rules?.risk_level === 'MEDIO').length;
-        const topRules = new Map<string, any>();
-        const TOTAL_RULES = 14;
-        const affectedProducts = new Set(
-            audit.audit_results
-                .map(x => x.product_code)
-                .filter(Boolean)
-        ).size;
+
+    //todo: metadata de estas reglas
+    private static readonly ECONOMIC_IMPACT_RULE_CODES = [
+        "RULE_001",
+        "RULE_002",
+        "RULE_003",
+        "RULE_012",
+        "RULE_013",
+        "RULE_014"
+    ];
+
+    private static computeEconomicImpact(
+        rows: { metadata: Prisma.JsonValue; audit_rules: { code: string } | null }[]
+    ): number {
         let economicImpact = 0;
-        let generalStatus = "CON_OBSERVACIONES";
-        for (const finding of audit.audit_results) {
-            if (!finding.audit_rules) continue;
-            const id = finding.audit_rules.id;
-            if (!topRules.has(id)) {
-                topRules.set(id, {
-                    id,
-                    code: finding.audit_rules.code,
-                    name: finding.audit_rules.name,
-                    riskLevel: finding.audit_rules.risk_level,
-                    count: 0
-                });
-            }
-            topRules.get(id).count++;
-            const metadata: any = finding.metadata ?? {};
-            switch (finding.audit_rules?.code) {
+        for (const row of rows) {
+            const metadata: any = row.metadata ?? {};
+            switch (row.audit_rules?.code) {
                 case "RULE_001":
                     economicImpact += Math.abs(
                         Number(metadata.inventoryTotalCost ?? 0) -
@@ -106,33 +80,118 @@ export class AuditResultsRepository {
                     );
                     break;
             }
-            economicImpact = Number(
-                economicImpact.toFixed(2)
-            );
-        }        
-        const failedRules = topRules.size;
+        }
+        return Number(economicImpact.toFixed(2));
+    }
+
+    async getDashboard(auditJobId: string) {
+
+        const TOTAL_RULES = 14;
+
+        //todo: conteo y data puntual
+        const [
+            audit,
+            totalFindings,
+            ruleCounts,
+            productGroups,
+            economicRows,
+            allRules
+        ] = await Promise.all([
+            this.prisma.audit_jobs.findUnique({
+                where: { id: auditJobId },
+                select: {
+                    id: true,
+                    year: true,
+                    status: true,
+                    created_at: true,
+                    completed_at: true,
+                    validation_status: true,
+                    regularization_date: true,
+                    corrective_action: true,
+                    observations: true,
+                    responsible: true,
+                    clients: {
+                        select: { business_name: true }
+                    }
+                }
+            }),
+            this.prisma.audit_results.count({
+                where: { audit_job_id: auditJobId }
+            }),
+            this.prisma.audit_results.groupBy({
+                by: ['rule_id'],
+                where: { audit_job_id: auditJobId, rule_id: { not: null } },
+                _count: { _all: true }
+            }),
+            this.prisma.audit_results.groupBy({
+                by: ['product_code'],
+                where: { audit_job_id: auditJobId, product_code: { not: null } }
+            }),
+            this.prisma.audit_results.findMany({
+                where: {
+                    audit_job_id: auditJobId,
+                    audit_rules: {
+                        code: { in: AuditResultsRepository.ECONOMIC_IMPACT_RULE_CODES }
+                    }
+                },
+                select: {
+                    metadata: true,
+                    audit_rules: { select: { code: true } }
+                }
+            }),
+            this.prisma.audit_rules.findMany()
+        ]);
+
+        if (!audit) {
+            return null;
+        }
+
+        const rulesById = new Map(allRules.map(rule => [rule.id, rule]));
+        const topRules = ruleCounts
+            .map(group => {
+                const rule = rulesById.get(group.rule_id!);
+                return {
+                    id: group.rule_id!,
+                    code: rule?.code,
+                    name: rule?.name,
+                    riskLevel: rule?.risk_level,
+                    count: group._count._all
+                };
+            })
+            .sort((a, b) => b.count - a.count);
+
+        //todo: contero de riesgos fijo de la regla
+        let high = 0;
+        let medium = 0;
+        let low = 0;
+        for (const rule of topRules) {
+            if (rule.riskLevel === 'CRITICO') high += rule.count;
+            else if (rule.riskLevel === 'ALTO') medium += rule.count;
+            else if (rule.riskLevel === 'MEDIO') low += rule.count;
+        }
+
+        const affectedProducts = productGroups.filter(
+            group => Boolean(group.product_code)
+        ).length;
+
+        const economicImpact =
+            AuditResultsRepository.computeEconomicImpact(economicRows as any);
+
+        const failedRules = topRules.length;
         const passedRules = TOTAL_RULES - failedRules;
         const compliance = Number(
             ((passedRules / TOTAL_RULES) * 100).toFixed(2)
         );
-        
-            const hasCriticalRule = Array
-                .from(topRules.values())
-                .some(x =>
-                    x.riskLevel === "CRITICO"
-                );
-                if (
-                    hasCriticalRule ||
-                    compliance < 80
-                ) {
-                    generalStatus = "CRITICO";
-                }
-                else if (
-                    compliance >= 95 &&
-                    economicImpact === 0
-                ) {
-                    generalStatus = "APROBADO";
-                }
+
+        const hasCriticalRule = topRules.some(x => x.riskLevel === "CRITICO");
+
+        let generalStatus = "CON_OBSERVACIONES";
+        if (hasCriticalRule || compliance < 80) {
+            generalStatus = "CRITICO";
+        } else if (compliance >= 95 && economicImpact === 0) {
+            generalStatus = "APROBADO";
+        }
+
         return {
             audit: {
                 id: audit.id,
@@ -143,7 +202,7 @@ export class AuditResultsRepository {
                 completedAt: audit.completed_at
             },
             summary: {
-                totalFindings: audit.audit_results.length,
+                totalFindings,
                 executedRules: TOTAL_RULES,
                 passedRules,
                 failedRules,
@@ -164,11 +223,10 @@ export class AuditResultsRepository {
                 medium,
                 low
             },
-            topRules: Array
-                .from(topRules.values())
-                .sort((a, b) => b.count - a.count)
+            topRules
         };
     }
+    
     async getRules(auditJobId: string) {
         const [results, rules] = await Promise.all([
             this.prisma.audit_results.groupBy({
