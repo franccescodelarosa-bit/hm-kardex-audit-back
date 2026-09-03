@@ -20,6 +20,15 @@ export interface Rule001Metadata {
 
 export class Rule001Exporter extends BaseExcelExporter {
 
+    private static equals(a: number, b: number): boolean {
+        return Math.abs(a - b) < 0.01;
+    }
+
+    private static puntoDePartida(auditYear?: number): string {
+        const previousYear = (auditYear ?? new Date().getFullYear()) - 1;
+        return `Punto de partida: Inventario final del cierre del ejercicio anterior (dic ${previousYear})`;
+    }
+
     async export(
         results: any[],
         header: ReportHeader
@@ -43,7 +52,7 @@ export class Rule001Exporter extends BaseExcelExporter {
         this.writeTableHeader(worksheet);
 
         const findings =
-            this.expand(results);
+            this.expand(results, header.year);
 
         this.writeRows(
             worksheet,
@@ -65,11 +74,27 @@ export class Rule001Exporter extends BaseExcelExporter {
         return workbook;
     }
 
+    protected writeTableHeader(worksheet: ExcelJS.Worksheet) {
+
+        super.writeTableHeader(worksheet);
+
+        const headerRow = worksheet.getRow(4);
+        headerRow.getCell(5).value = "Valor esperado del inventario final";
+        headerRow.getCell(6).value = "Valor encontrado del Kardex";
+
+        worksheet.getColumn(5).width = 30;
+        worksheet.getColumn(6).width = 30;
+    }
+
     private expand(
-        results: any[]
+        results: any[],
+        auditYear?: number
     ): AuditFindingRow[] {
 
         const rows: AuditFindingRow[] = [];
+
+        const puntoDePartida =
+            Rule001Exporter.puntoDePartida(auditYear);
 
         for (const result of results) {
 
@@ -120,6 +145,7 @@ export class Rule001Exporter extends BaseExcelExporter {
                         result.risk_level,
 
                     traceability: [
+                        puntoDePartida,
                         `Descripción: ${result.description}`,
                         `Recomendación: ${result.recommendation}`,
                         `Código Inventario: ${result.product_code ?? ""}`
@@ -171,6 +197,7 @@ export class Rule001Exporter extends BaseExcelExporter {
                         result.risk_level,
 
                     traceability: [
+                        puntoDePartida,
                         `Descripción: ${result.description}`,
                         `Recomendación: ${result.recommendation}`,
                         `Código Inventario: ${result.product_code ?? ""}`,
@@ -189,151 +216,167 @@ export class Rule001Exporter extends BaseExcelExporter {
 
             if (errorType === "INVENTORY_MISMATCH") {
 
+                const inventoryStock = metadata.inventoryStock ?? 0;
+                const kardexStock = metadata.kardexStock ?? 0;
+                const inventoryUnitCost = metadata.inventoryUnitCost ?? 0;
+                const kardexUnitCost = metadata.kardexUnitCost ?? 0;
+                const inventoryTotalCost = metadata.inventoryTotalCost ?? 0;
+                const kardexTotalCost = metadata.kardexTotalCost ?? 0;
+
+                const stockDiffiere =
+                    !Rule001Exporter.equals(inventoryStock, kardexStock);
+
+                const costoUnitarioDiffiere =
+                    !Rule001Exporter.equals(inventoryUnitCost, kardexUnitCost);
+
+                const costoTotalDiffiere =
+                    !Rule001Exporter.equals(inventoryTotalCost, kardexTotalCost);
+
                 /*
                  * STOCK
                  */
 
-                rows.push({
-                    period: month,
+                if (stockDiffiere) {
 
-                    productCode:
-                        result.product_code,
+                    rows.push({
+                        period: month,
 
-                    productDescription:
-                        result.product_name,
+                        productCode:
+                            result.product_code,
 
-                    inconsistencyType:
-                        "Cantidad",
+                        productDescription:
+                            result.product_name,
 
-                    expectedValue:
-                        metadata.inventoryStock ?? 0,
+                        inconsistencyType:
+                            "Cantidad",
 
-                    foundValue:
-                        metadata.kardexStock ?? 0,
+                        expectedValue:
+                            inventoryStock,
 
-                    difference:
-                        (metadata.inventoryStock ?? 0) -
-                        (metadata.kardexStock ?? 0),
+                        foundValue:
+                            kardexStock,
 
-                    differencePercent:
-                        metadata.inventoryStock === 0
-                            ? 0
-                            : Math.abs(
-                                (
-                                    (metadata.inventoryStock ?? 0) -
-                                    (metadata.kardexStock ?? 0)
-                                ) /
-                                metadata.inventoryStock!
-                            ) * 100,
+                        difference:
+                            inventoryStock - kardexStock,
 
-                    riskLevel:
-                        result.risk_level,
+                        differencePercent:
+                            inventoryStock === 0
+                                ? 0
+                                : Math.abs(
+                                    (inventoryStock - kardexStock) /
+                                    inventoryStock
+                                ) * 100,
 
-                    traceability: [
-                        `Descripción: ${result.description}`,
-                        `Código Inventario: ${metadata.inventoryCode ?? ""}`,
-                        `Código Normalizado: ${metadata.normalizedCode ?? ""}`,
-                        `Stock Inventario: ${metadata.inventoryStock ?? 0}`,
-                        `Stock Kardex: ${metadata.kardexStock ?? 0}`,
-                        `Movimientos Kardex: ${metadata.kardexMovements ?? 0}`
-                    ].join("\n")
-                });
+                        riskLevel:
+                            result.risk_level,
+
+                        traceability: [
+                            puntoDePartida,
+                            "Descripción: El inventario final no coincide con el Saldo Inicial del Kardex (Cantidad).",
+                            `Código Inventario: ${metadata.inventoryCode ?? ""}`,
+                            `Código Normalizado: ${metadata.normalizedCode ?? ""}`,
+                            `Stock Inventario: ${inventoryStock}`,
+                            `Stock Kardex: ${kardexStock}`,
+                            `Movimientos Kardex: ${metadata.kardexMovements ?? 0}`
+                        ].join("\n")
+                    });
+                }
 
                 /*
                  * COSTO UNITARIO
                  */
 
-                rows.push({
-                    period: month,
+                if (costoUnitarioDiffiere) {
 
-                    productCode:
-                        result.product_code,
+                    rows.push({
+                        period: month,
 
-                    productDescription:
-                        result.product_name,
+                        productCode:
+                            result.product_code,
 
-                    inconsistencyType:
-                        "Costo Unitario",
+                        productDescription:
+                            result.product_name,
 
-                    expectedValue:
-                        metadata.inventoryUnitCost ?? 0,
+                        inconsistencyType:
+                            "Costo Unitario",
 
-                    foundValue:
-                        metadata.kardexUnitCost ?? 0,
+                        expectedValue:
+                            inventoryUnitCost,
 
-                    difference:
-                        (metadata.inventoryUnitCost ?? 0) -
-                        (metadata.kardexUnitCost ?? 0),
+                        foundValue:
+                            kardexUnitCost,
 
-                    differencePercent:
-                        metadata.inventoryUnitCost === 0
-                            ? 0
-                            : Math.abs(
-                                (
-                                    (metadata.inventoryUnitCost ?? 0) -
-                                    (metadata.kardexUnitCost ?? 0)
-                                ) /
-                                metadata.inventoryUnitCost!
-                            ) * 100,
+                        difference:
+                            inventoryUnitCost - kardexUnitCost,
 
-                    riskLevel:
-                        result.risk_level,
+                        differencePercent:
+                            inventoryUnitCost === 0
+                                ? 0
+                                : Math.abs(
+                                    (inventoryUnitCost - kardexUnitCost) /
+                                    inventoryUnitCost
+                                ) * 100,
 
-                    traceability: [
-                        `Descripción: ${result.description}`,
-                        `Costo Inventario: ${metadata.inventoryUnitCost ?? 0}`,
-                        `Costo Kardex: ${metadata.kardexUnitCost ?? 0}`,
-                        `Movimientos Kardex: ${metadata.kardexMovements ?? 0}`
-                    ].join("\n")
-                });
+                        riskLevel:
+                            result.risk_level,
+
+                        traceability: [
+                            puntoDePartida,
+                            "Descripción: El inventario final no coincide con el Saldo Inicial del Kardex (Costo Unitario).",
+                            `Costo Inventario: ${inventoryUnitCost}`,
+                            `Costo Kardex: ${kardexUnitCost}`,
+                            `Movimientos Kardex: ${metadata.kardexMovements ?? 0}`
+                        ].join("\n")
+                    });
+                }
 
                 /*
                  * COSTO TOTAL
                  */
 
-                rows.push({
-                    period: month,
+                if (costoTotalDiffiere) {
 
-                    productCode:
-                        result.product_code,
+                    rows.push({
+                        period: month,
 
-                    productDescription:
-                        result.product_name,
+                        productCode:
+                            result.product_code,
 
-                    inconsistencyType:
-                        "Costo Total",
+                        productDescription:
+                            result.product_name,
 
-                    expectedValue:
-                        metadata.inventoryTotalCost ?? 0,
+                        inconsistencyType:
+                            "Costo Total",
 
-                    foundValue:
-                        metadata.kardexTotalCost ?? 0,
+                        expectedValue:
+                            inventoryTotalCost,
 
-                    difference:
-                        (metadata.inventoryTotalCost ?? 0) -
-                        (metadata.kardexTotalCost ?? 0),
+                        foundValue:
+                            kardexTotalCost,
 
-                    differencePercent:
-                        metadata.inventoryTotalCost === 0
-                            ? 0
-                            : Math.abs(
-                                (
-                                    (metadata.inventoryTotalCost ?? 0) -
-                                    (metadata.kardexTotalCost ?? 0)
-                                ) /
-                                metadata.inventoryTotalCost!
-                            ) * 100,
+                        difference:
+                            inventoryTotalCost - kardexTotalCost,
 
-                    riskLevel:
-                        result.risk_level,
+                        differencePercent:
+                            inventoryTotalCost === 0
+                                ? 0
+                                : Math.abs(
+                                    (inventoryTotalCost - kardexTotalCost) /
+                                    inventoryTotalCost
+                                ) * 100,
 
-                    traceability: [
-                        `Descripción: ${result.description}`,
-                        `Total Inventario: ${metadata.inventoryTotalCost ?? 0}`,
-                        `Total Kardex: ${metadata.kardexTotalCost ?? 0}`,
-                        `Movimientos Kardex: ${metadata.kardexMovements ?? 0}`
-                    ].join("\n")
-                });
+                        riskLevel:
+                            result.risk_level,
+
+                        traceability: [
+                            puntoDePartida,
+                            "Descripción: El inventario final no coincide con el Saldo Inicial del Kardex (Costo Total).",
+                            `Total Inventario: ${inventoryTotalCost}`,
+                            `Total Kardex: ${kardexTotalCost}`,
+                            `Movimientos Kardex: ${metadata.kardexMovements ?? 0}`
+                        ].join("\n")
+                    });
+                }
             }
         }
 
