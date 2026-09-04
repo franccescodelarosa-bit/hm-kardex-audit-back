@@ -52,7 +52,7 @@ describe("Rule014Exporter", () => {
         expect(sheet.getRow(5).getCell(4).value).not.toBe("Sumatoria Consolidada - Cantidad");
     });
 
-    it("'Tipo de inconsistencia' coincide con 'Campos con diferencia' -- mismo nombre en los dos lados", async () => {
+    it("la trazabilidad se lee como una cadena de principio a fin: Saldo Inicial -> Entradas/Salidas -> Encontrado -> Esperado -> Diferencia (ya NO repite 'Campos con diferencia', eso ya lo dice 'Tipo de inconsistencia')", async () => {
         const exporter = new Rule014Exporter();
         const results = [{ risk_level: "CRITICO", metadata: baseMetadata() }];
 
@@ -63,7 +63,22 @@ describe("Rule014Exporter", () => {
         const trace = String(sheet.getRow(5).getCell(10).value);
 
         expect(tipo).toBe("Costo valorizado fuera del rango permitido");
-        expect(trace).toContain(`Campos con diferencia: ${tipo}`);
+        expect(trace).not.toContain("Campos con diferencia");
+
+        // El orden importa: es una cadena de principio (Saldo Inicial) a fin (Diferencia).
+        const puntoDePartida = trace.indexOf("Punto de partida - Saldo Inicial consolidado del mes: 945647.12");
+        const entradas = trace.indexOf("+ Total Entradas (Compras, Op. 02): 310438.92");
+        const salidas = trace.indexOf("− Total Salidas (Ventas, Op. 01): 274389.11");
+        const encontrado = trace.indexOf("= Resultado de la fórmula (Encontrado): 981696.93");
+        const esperado = trace.indexOf("Cierre real que trae el Kardex (Esperado): 990339.13");
+        const diferencia = trace.indexOf("Diferencia: 8642.2");
+
+        expect(puntoDePartida).toBeGreaterThanOrEqual(0);
+        expect(entradas).toBeGreaterThan(puntoDePartida);
+        expect(salidas).toBeGreaterThan(entradas);
+        expect(encontrado).toBeGreaterThan(salidas);
+        expect(esperado).toBeGreaterThan(encontrado);
+        expect(diferencia).toBeGreaterThan(esperado);
     });
 
     it("'Rango Permitido' ya no muestra el mismo numero repetido como si fuera un rango -- ahora es un texto claro (0% tolerancia = sin tolerancia)", async () => {

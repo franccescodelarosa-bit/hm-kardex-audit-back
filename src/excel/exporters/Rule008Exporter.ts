@@ -49,10 +49,10 @@ export class Rule008Exporter extends BaseExcelExporter {
                 period: DateUtils.monthName(metadata.month),
                 productCode: result.product_code,
                 productDescription: result.product_name,
-                inconsistencyType: "Producto no encontrado en el maestro",
+                inconsistencyType: "Producto no encontrado en el inventario",
                 expectedValue: "Producto registrado",
                 foundValue: "Producto inexistente",
-                difference: result.product_code,
+                difference: "No aplica",
                 differencePercent: undefined,
                 riskLevel: result.risk_level,
                 traceability: [

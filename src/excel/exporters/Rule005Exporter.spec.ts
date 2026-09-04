@@ -36,14 +36,14 @@ describe("Rule005Exporter", () => {
         expect(sheet.rowCount).toBe(6); // 4 de header + 2 filas de datos
 
         // Fila 1: Costo Unitario de Saldo -- "Valor encontrado" YA NO debe salir vacío
-        expect(sheet.getRow(5).getCell(4).value).toBe("Saldo Negativo (Costo Unitario de Saldo)");
+        expect(sheet.getRow(5).getCell(4).value).toBe("Costo Unitario de Saldo");
         expect(sheet.getRow(5).getCell(6).value).toBe(-4.06);
         const trace1 = String(sheet.getRow(5).getCell(10).value);
         expect(trace1).toContain("Campos Negativos: Costo Unitario de Saldo");
         expect(trace1).not.toContain("Costo Total de Saldo");
 
         // Fila 2: Costo Total de Saldo -- su propio valor, su propia trazabilidad
-        expect(sheet.getRow(6).getCell(4).value).toBe("Saldo Negativo (Costo Total de Saldo)");
+        expect(sheet.getRow(6).getCell(4).value).toBe("Costo Total de Saldo");
         expect(sheet.getRow(6).getCell(6).value).toBe(-40.6);
         const trace2 = String(sheet.getRow(6).getCell(10).value);
         expect(trace2).toContain("Campos Negativos: Costo Total de Saldo");

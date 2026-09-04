@@ -112,16 +112,16 @@ export class Rule014Exporter extends BaseExcelExporter {
                     ),
                     riskLevel: result.risk_level,
                     traceability: [
-                        "ERROR DE CONSOLIDACIÓN DEL KARDEX Y LA DIFERENCIA",
-                        `Saldo Inicial: ${metadata.initialBalance.totalCost}`,
-                        `Entradas: ${metadata.totals.entry.totalCost}`,
-                        `Salidas: ${metadata.totals.exit.totalCost}`,
-                        `Inventario Valorizado de Cierre (Esperado): ${metadata.actualFinalBalance.totalCost}`,
-                        `Resultado Fórmula Inicio+Entrada-Salida (Encontrado): ${metadata.expectedFinalBalance.totalCost}`,
-                        `Tolerancia: Sin tolerancia (debe coincidir exacto, sin ningún margen)`,
-                        `Productos Consolidados: ${metadata.productCount}`,
-                        `Movimientos Consolidados: ${metadata.movementCount}`,
-                        `Campos con diferencia: Costo valorizado fuera del rango permitido`
+                        "Mensaje del sistema (Anexo 03): ERROR DE CONSOLIDACIÓN DEL KARDEX Y LA DIFERENCIA",
+                        `Punto de partida - Saldo Inicial consolidado del mes: ${metadata.initialBalance.totalCost}`,
+                        `+ Total Entradas (Compras, Op. 02): ${metadata.totals.entry.totalCost}`,
+                        `− Total Salidas (Ventas, Op. 01): ${metadata.totals.exit.totalCost}`,
+                        `= Resultado de la fórmula (Encontrado): ${metadata.expectedFinalBalance.totalCost}`,
+                        `Cierre real que trae el Kardex (Esperado): ${metadata.actualFinalBalance.totalCost}`,
+                        `Diferencia: ${diferencia}`,
+                        `Tolerancia: Sin tolerancia (debe coincidir exacto)`,
+                        `Productos consolidados: ${metadata.productCount}`,
+                        `Movimientos consolidados: ${metadata.movementCount}`
                     ].join("\n")
                 });
             }
