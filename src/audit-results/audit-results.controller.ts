@@ -1,6 +1,7 @@
 import {
     Controller,
     Get,
+    Post,
     Put,
     Param,
     Body,
@@ -87,6 +88,31 @@ export class AuditResultsController {
             `attachment; filename=${ruleId}.xlsx`
         );
         res.send(Buffer.from(buffer));
+    }
+
+    //todo: disparar la generacion el zip
+    @Post(":id/reports/zip")
+    startZipReport(
+        @Param("id") auditJobId: string
+    ) {
+        return this.service.startZipReport(auditJobId);
+    }
+
+    //todo: polling para una regla
+    @Post(":id/rules/:ruleId/reports")
+    startRuleReport(
+        @Param("id") auditJobId: string,
+        @Param("ruleId") ruleId: string
+    ) {
+        return this.service.startRuleReport(auditJobId, ruleId);
+    }
+
+    //todo: verificar si ya está ok el archivo
+    @Get("reports/:reportId")
+    getReportStatus(
+        @Param("reportId") reportId: string
+    ) {
+        return this.service.getReportStatus(reportId);
     }
 
 }

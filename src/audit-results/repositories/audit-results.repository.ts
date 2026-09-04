@@ -469,4 +469,45 @@ export class AuditResultsRepository {
             rows
         };
     }
+
+    //todo: crear registro asociafdo al auditJobId
+    async createReport(auditJobId: string, reportType: string) {
+        return this.prisma.generated_reports.create({
+            data: {
+                audit_job_id: auditJobId,
+                report_type: reportType,
+                status: "PENDING"
+            }
+        });
+    }
+
+    //todo: actualizar cuando ya esta god
+    async markReportReady(id: string, s3Key: string) {
+        return this.prisma.generated_reports.update({
+            where: { id },
+            data: {
+                status: "READY",
+                s3_key: s3Key,
+                generated_at: new Date()
+            }
+        });
+    }
+
+    //todo: actualizar pero, cuando hay algun error
+    async markReportError(id: string, errorMessage: string) {
+        return this.prisma.generated_reports.update({
+            where: { id },
+            data: {
+                status: "ERROR",
+                error_message: errorMessage.slice(0, 1000)
+            }
+        });
+    }
+
+    //todo: busca y devuelve el registro por ID
+    async getReport(id: string) {
+        return this.prisma.generated_reports.findUnique({
+            where: { id }
+        });
+    }
 }

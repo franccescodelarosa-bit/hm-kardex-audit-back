@@ -107,12 +107,20 @@ model companies {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model generated_reports {
-  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  audit_job_id String     @db.Uuid
-  report_type  String?    @db.VarChar(50)
-  s3_key       String
-  generated_at DateTime?  @default(now()) @db.Timestamptz(6)
-  audit_jobs   audit_jobs @relation(fields: [audit_job_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id            String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  audit_job_id  String     @db.Uuid
+  report_type   String?    @db.VarChar(50)
+  // Nullable porque la fila se crea ANTES de que exista el archivo --
+  // se llena recién cuando termina de generarse y subirse a S3.
+  s3_key        String?
+  // PENDING mientras se genera en segundo plano, READY cuando ya está
+  // en S3 (con su s3_key), ERROR si algo falló (ver error_message).
+  status        String?    @default("PENDING") @db.VarChar(50)
+  error_message String?
+  generated_at  DateTime?  @default(now()) @db.Timestamptz(6)
+  audit_jobs    audit_jobs @relation(fields: [audit_job_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([audit_job_id])
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
