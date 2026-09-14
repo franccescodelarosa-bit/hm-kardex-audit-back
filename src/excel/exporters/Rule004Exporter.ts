@@ -209,8 +209,8 @@ export class Rule004Exporter extends BaseExcelExporter {
                     ...(esValidacionDeCosto
                         ? [
                             `Umbral permitido: ${metadata.thresholdPercent}%`,
-                            `Fuente de búsqueda: ${metadata.usedFallback ? "Documento (no había Códigos Adquiridos)" : "Códigos Adquiridos"}`,
-                            `Resultado: ${noEvaluable ? "SIN DATOS PARA EVALUAR" : (metadata.isIncident ? "INCIDENCIA" : "ACEPTADA")}`
+                            `Fuente de búsqueda: ${metadata.usedFallback ? "Formato (no había Códigos Adquiridos)" : "Códigos Adquiridos"}`,
+                            `Resultado: ${noEvaluable ? "SIN DATOS PARA EVALUAR" : (metadata.isIncident ? "CONTINGENCIA" : "ACEPTADA")}`
                         ]
                         : [])
                 ].join("\n")

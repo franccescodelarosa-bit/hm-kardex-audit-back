@@ -42,7 +42,7 @@ export class Rule007Exporter extends BaseExcelExporter {
         const worksheet = workbook.addWorksheet("RULE_007");
         this.writeHeader(
             worksheet,
-            "RULE_007 - Validación de sumatorias en cantidades",
+            "RULE_007 - Validación de sumatorias en cantidades y costos",
             header,
             "J"
         );

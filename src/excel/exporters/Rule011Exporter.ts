@@ -67,10 +67,9 @@ export class Rule011Exporter extends BaseExcelExporter {
                 riskLevel: result.risk_level,
                 traceability: [
                     `Fecha: ${metadata.date}`,
-                    `Documento: ${metadata.document}`,
-                    `Operación: ${metadata.operation}`,
-                    `Costo Anterior: ${metadata.previousCost}`,
-                    `Costo Actual: ${metadata.currentCost}`,
+                    `Costo Unitario Final: ${metadata.previousCost}`,
+                    `Costo Unitario Inicial: ${metadata.currentCost}`,
+                    `Ocurrencia: ${metadata.document} (Operación ${metadata.operation})`,
                     `Variación: ${metadata.variationPercent.toFixed(2)} %`
                 ].join("\n")
             });

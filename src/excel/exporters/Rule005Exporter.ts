@@ -63,7 +63,7 @@ export class Rule005Exporter extends BaseExcelExporter {
                     period: DateUtils.monthName(Number(metadata.month)),
                     productCode: result.product_code,
                     productDescription: result.product_name,
-                    inconsistencyType: `Saldo Negativo (${negative})`,
+                    inconsistencyType: negative,
                     expectedValue: ">= 0",
                     foundValue: this.getNegativeValue(metadata, negative),
                     difference: this.getNegativeValue(metadata, negative),
