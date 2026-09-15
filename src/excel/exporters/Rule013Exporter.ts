@@ -8,7 +8,15 @@ import { DateUtils } from "../helpers/dateutils";
 export interface Rule013Metadata {
     month: number;
     normalizedCode: string;
+    initialBalance: {
+        quantity: number;
+        totalCost: number;
+    };
     totals: {
+        entry: {
+            quantity: number;
+            totalCost: number;
+        };
         exit: {
             quantity: number;
             totalCost: number;
@@ -22,6 +30,8 @@ export interface Rule013Metadata {
         quantity: number;
         expectedTotalCost: number;
         foundTotalCost: number;
+        expectedUnitCost?: number;
+        foundUnitCost?: number;
     }[];
 
     expectedFinalBalance: {
@@ -109,8 +119,8 @@ export class Rule013Exporter extends BaseExcelExporter {
                     traceability: [
                         codigoNormalizado,
                         `Cantidad de Salidas: ${metadata.totals.exit.quantity}`,
-                        `Costo de Salidas Esperado (Archivo): ${metadata.totals.exit.totalCostArchivo}`,
-                        `Costo de Salidas Encontrado (CPP): ${metadata.totals.exit.totalCost}`,
+                        `Costo Total de Salidas Esperado (Archivo): ${metadata.totals.exit.totalCostArchivo}`,
+                        `Costo Total de Salidas Encontrado (CPP): ${metadata.totals.exit.totalCost}`,
                         `Movimientos Analizados: ${metadata.movementCount}`,
                         // Solo la diferencia de ESTA fila -- no la lista
                         // completa del producto (evita mezclar con las otras
@@ -135,15 +145,7 @@ export class Rule013Exporter extends BaseExcelExporter {
                     difference: diferencia,
                     differencePercent: Rule013Exporter.percent(mismatch.expectedTotalCost, diferencia),
                     riskLevel: result.risk_level,
-                    traceability: [
-                        codigoNormalizado,
-                        `Documento: ${mismatch.document}`,
-                        `Cantidad de esa Entrada: ${mismatch.quantity}`,
-                        `Costo Total del Archivo (esa entrada): ${mismatch.expectedTotalCost}`,
-                        `Costo Total Recalculado (CPP x cantidad de esa entrada): ${mismatch.foundTotalCost}`,
-                        `Movimientos Analizados: ${metadata.movementCount}`,
-                        `Campos con diferencia: Costo Unitario de Saldo Final`
-                    ].join("\n")
+                    traceability: Rule013Exporter.unitCostTrace(codigoNormalizado, mismatch, metadata.movementCount)
                 });
             }
 
@@ -163,9 +165,12 @@ export class Rule013Exporter extends BaseExcelExporter {
                     riskLevel: result.risk_level,
                     traceability: [
                         codigoNormalizado,
-                        `Cantidad Final del Mes: ${metadata.actualFinalBalance.quantity}`,
-                        `Costo Total del Archivo (última fila del mes): ${esperado}`,
-                        `Costo Total Calculado (CPP de la última entrada x cantidad final): ${encontrado}`,
+                        `Saldo Inicial del Costo Total: ${metadata.initialBalance.totalCost}`,
+                        `Costo Total por Entrada: ${metadata.totals.entry.totalCost}`,
+                        `Costo Total de Salidas Encontrado: ${metadata.totals.exit.totalCost}`,
+                        `Costo Total Esperado (Archivo): ${esperado}`,
+                        `Costo Total Encontrado (CPP recalculado): ${encontrado}`,
+                        `Rango Permitido (0%): ${encontrado} - ${encontrado}`,
                         `Movimientos Analizados: ${metadata.movementCount}`,
                         `Campos con diferencia: Costo Total de Saldo Final`
                     ].join("\n")
@@ -173,6 +178,32 @@ export class Rule013Exporter extends BaseExcelExporter {
             }
         }
         return rows;
+    }
+
+    private static unitCostTrace(
+        codigoNormalizado: string,
+        mismatch: Rule013Metadata["unitCostMismatches"][number],
+        movementCount: number
+    ): string {
+        const lines = [
+            codigoNormalizado,
+            // `Documento: ${mismatch.document}`,
+            // `Cantidad de esa Entrada: ${mismatch.quantity}`
+        ];
+
+        if (mismatch.expectedUnitCost !== undefined && mismatch.foundUnitCost !== undefined) {
+            lines.push(
+                `Costo Promedio Ponderado Unitario Esperado: ${mismatch.expectedUnitCost}`,
+                `CPP encontrado: ${mismatch.foundUnitCost}`
+            );
+        }
+
+        lines.push(
+            `Movimientos Analizados: ${movementCount}`,
+            `Campos con diferencia: Costo Unitario de Saldo Final`
+        );
+
+        return lines.join("\n");
     }
 
     private static round(value: number): number {
