@@ -22,12 +22,14 @@ function baseMetadata(overrides: Partial<any> = {}) {
     return {
         month: 1,
         normalizedCode: "129",
+        initialBalance: { quantity: 12, totalCost: 73.92 },
         totals: {
+            entry: { quantity: 120, totalCost: 700.80 },
             exit: { quantity: 37, totalCost: 222.42, totalCostArchivo: 222.42 }
         },
         unitCostMismatches: [
-            { date: null, document: "F001-00004970", quantity: 60, expectedTotalCost: 358.20, foundTotalCost: 346.80 },
-            { date: null, document: "F001-00004994", quantity: 120, expectedTotalCost: 712.80, foundTotalCost: 712.20 }
+            { date: null, document: "F001-00004970", quantity: 60, expectedTotalCost: 358.20, foundTotalCost: 346.80, expectedUnitCost: 5.97, foundUnitCost: 5.78 },
+            { date: null, document: "F001-00004994", quantity: 120, expectedTotalCost: 712.80, foundTotalCost: 712.20, expectedUnitCost: 5.94, foundUnitCost: 5.935 }
         ],
         // Ni el Costo Unitario ni el Costo Total calculados vienen
         // redondeados a centavos -- así se ve la diferencia real
@@ -104,7 +106,7 @@ describe("Rule013Exporter", () => {
                 risk_level: "CRITICO",
                 metadata: baseMetadata({
                     unitCostMismatches: [
-                        { date: null, document: "F001-00004970", quantity: 60, expectedTotalCost: 358.20, foundTotalCost: 346.80 }
+                        { date: null, document: "F001-00004970", quantity: 60, expectedTotalCost: 358.20, foundTotalCost: 346.80, expectedUnitCost: 5.97, foundUnitCost: 5.78 }
                     ],
                     differences: ["Costo Unitario de Saldo Final"]
                 })
@@ -122,6 +124,40 @@ describe("Rule013Exporter", () => {
         const trace = String(sheet.getRow(5).getCell(10).value);
         expect(trace).toContain("Documento: F001-00004970");
         expect(trace).toContain("Cantidad de esa Entrada: 60");
+        // El pp (Costo Unitario) también se muestra en la trazabilidad,
+        // como contexto adicional -- la columna principal sigue en soles.
+        expect(trace).toContain("Costo Promedio Ponderado Unitario Esperado (Archivo): 5.97");
+        expect(trace).toContain("Costo Promedio Ponderado Unitario Encontrado (CPP recalculado): 5.78");
+        // Las líneas de Costo Total quedan redundantes con las columnas
+        // principales del Excel (esperado/encontrado ya son 358.2/346.8).
+        expect(trace).not.toContain("Costo Total del Archivo (esa entrada)");
+        expect(trace).not.toContain("Costo Total Recalculado (CPP x cantidad de esa entrada)");
+    });
+
+    it("'Costo Unitario de Saldo Final': si el hallazgo viene de una auditoría vieja (sin expectedUnitCost/foundUnitCost en el metadata), NO muestra 'undefined' -- omite esas líneas", async () => {
+        const exporter = new Rule013Exporter();
+        const results = [
+            {
+                product_code: "000129",
+                product_name: "AGUJA PLATEADA E/DISCO 24-1 ROSADA M/NEEDLES",
+                risk_level: "CRITICO",
+                metadata: baseMetadata({
+                    unitCostMismatches: [
+                        { date: null, document: "F001-00004994", quantity: 120, expectedTotalCost: 712.8, foundTotalCost: 712.2 }
+                    ],
+                    differences: ["Costo Unitario de Saldo Final"]
+                })
+            }
+        ];
+
+        const workbook = await exporter.export(results, header);
+        const sheet = workbook.worksheets[0];
+
+        const trace = String(sheet.getRow(5).getCell(10).value);
+        expect(trace).not.toContain("undefined");
+        expect(trace).toContain("Documento: F001-00004994");
+        expect(trace).toContain("Cantidad de esa Entrada: 120");
+        expect(trace).not.toContain("Costo Promedio Ponderado Unitario");
     });
 
     it("'Costo Total de Saldo Final': esperado = archivo (última fila del mes), encontrado = CPP de la última entrada x cantidad final real", async () => {
@@ -146,7 +182,12 @@ describe("Rule013Exporter", () => {
         expect(sheet.getRow(5).getCell(6).value).toBe(563.825); // encontrado = CPP x cantidad final, sin redondeo visual
 
         const trace = String(sheet.getRow(5).getCell(10).value);
-        expect(trace).toContain("Cantidad Final del Mes: 95");
+        expect(trace).toContain("Saldo Inicial del Costo Total: 73.92");
+        expect(trace).toContain("Costo Total por Entrada: 700.8");
+        expect(trace).toContain("Costo Total de Salidas Encontrado: 222.42");
+        expect(trace).toContain("Costo Total Esperado (Archivo): 564.3");
+        expect(trace).toContain("Costo Total Encontrado (CPP recalculado): 563.825");
+        expect(trace).toContain("Rango Permitido (0%): 563.825 - 563.825");
     });
 
     it("si las 3 validaciones fallan, muestra 3 filas en el orden confirmado (Salidas -> Unitario -> Total)", async () => {
@@ -158,7 +199,7 @@ describe("Rule013Exporter", () => {
                 risk_level: "CRITICO",
                 metadata: baseMetadata({
                     unitCostMismatches: [
-                        { date: null, document: "F001-00004970", quantity: 60, expectedTotalCost: 358.20, foundTotalCost: 346.80 }
+                        { date: null, document: "F001-00004970", quantity: 60, expectedTotalCost: 358.20, foundTotalCost: 346.80, expectedUnitCost: 5.97, foundUnitCost: 5.78 }
                     ],
                     differences: ["Costo Total de Salidas", "Costo Unitario de Saldo Final", "Costo Total de Saldo Final"]
                 })
@@ -183,7 +224,7 @@ describe("Rule013Exporter", () => {
                 risk_level: "CRITICO",
                 metadata: baseMetadata({
                     unitCostMismatches: [
-                        { date: null, document: "F001-00004970", quantity: 60, expectedTotalCost: 358.20, foundTotalCost: 346.80 }
+                        { date: null, document: "F001-00004970", quantity: 60, expectedTotalCost: 358.20, foundTotalCost: 346.80, expectedUnitCost: 5.97, foundUnitCost: 5.78 }
                     ],
                     differences: ["Costo Total de Salidas", "Costo Unitario de Saldo Final", "Costo Total de Saldo Final"]
                 })
@@ -193,20 +234,18 @@ describe("Rule013Exporter", () => {
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
 
+
+        const camposLine = (trace: string) =>
+            trace.split("\n").find(line => line.startsWith("Campos con diferencia:"));
+
         const trace1 = String(sheet.getRow(5).getCell(10).value);
-        expect(trace1).toContain("Campos con diferencia: Costo Total de Salidas");
-        expect(trace1).not.toContain("Costo Unitario de Saldo Final");
-        expect(trace1).not.toContain("Costo Total de Saldo Final");
+        expect(camposLine(trace1)).toBe("Campos con diferencia: Costo Total de Salidas");
 
         const trace2 = String(sheet.getRow(6).getCell(10).value);
-        expect(trace2).toContain("Campos con diferencia: Costo Unitario de Saldo Final");
-        expect(trace2).not.toContain("Costo Total de Salidas");
-        expect(trace2).not.toContain("Costo Total de Saldo Final");
+        expect(camposLine(trace2)).toBe("Campos con diferencia: Costo Unitario de Saldo Final");
 
         const trace3 = String(sheet.getRow(7).getCell(10).value);
-        expect(trace3).toContain("Campos con diferencia: Costo Total de Saldo Final");
-        expect(trace3).not.toContain("Costo Total de Salidas");
-        expect(trace3).not.toContain("Costo Unitario de Saldo Final");
+        expect(camposLine(trace3)).toBe("Campos con diferencia: Costo Total de Saldo Final");
     });
 
     it("si solo 1 validacion falla (ej. solo 1 entrada con Costo Unitario mal), muestra 1 sola fila", async () => {
@@ -218,7 +257,7 @@ describe("Rule013Exporter", () => {
                 risk_level: "CRITICO",
                 metadata: baseMetadata({
                     unitCostMismatches: [
-                        { date: null, document: "F001-00000001", quantity: 10, expectedTotalCost: 100, foundTotalCost: 95 }
+                        { date: null, document: "F001-00000001", quantity: 10, expectedTotalCost: 100, foundTotalCost: 95, expectedUnitCost: 10, foundUnitCost: 9.5 }
                     ],
                     differences: ["Costo Unitario de Saldo Final"]
                 })

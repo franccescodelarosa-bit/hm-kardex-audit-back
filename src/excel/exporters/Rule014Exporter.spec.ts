@@ -66,11 +66,11 @@ describe("Rule014Exporter", () => {
         expect(trace).not.toContain("Campos con diferencia");
 
         // El orden importa: es una cadena de principio (Saldo Inicial) a fin (Diferencia).
-        const puntoDePartida = trace.indexOf("Punto de partida - Saldo Inicial consolidado del mes: 945647.12");
-        const entradas = trace.indexOf("+ Total Entradas (Compras, Op. 02): 310438.92");
-        const salidas = trace.indexOf("− Total Salidas (Ventas, Op. 01): 274389.11");
-        const encontrado = trace.indexOf("= Resultado de la fórmula (Encontrado): 981696.93");
-        const esperado = trace.indexOf("Cierre real que trae el Kardex (Esperado): 990339.13");
+        const puntoDePartida = trace.indexOf("Punto de partida: Saldo Inicial consolidado del mes (suma de todos los saldos iniciales de los productos): 945647.12");
+        const entradas = trace.indexOf("+ Costo Total Entradas: 310438.92");
+        const salidas = trace.indexOf("− Costo Total de Salidas: 274389.11");
+        const encontrado = trace.indexOf("= Valor Encontrado: 981696.93");
+        const esperado = trace.indexOf("Valor Esperado: 990339.13");
         const diferencia = trace.indexOf("Diferencia: 8642.2");
 
         expect(puntoDePartida).toBeGreaterThanOrEqual(0);
