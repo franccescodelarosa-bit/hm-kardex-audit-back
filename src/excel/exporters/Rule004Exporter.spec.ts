@@ -159,7 +159,7 @@ describe("Rule004Exporter", () => {
         expect(tipo).toBe("Sin datos suficientes para evaluar el costo");
 
         const trace = String(sheet.getRow(5).getCell(16).value);
-        expect(trace).toContain("Fuente de búsqueda: Documento (fallback -- no había Códigos Adquiridos)");
+        expect(trace).toContain("Fuente de búsqueda: Factura (todas sus líneas)");
         expect(trace).toContain("SIN DATOS PARA EVALUAR");
     });
 
@@ -196,7 +196,7 @@ describe("Rule004Exporter", () => {
         expect(sheet.getRow(5).getCell(10).value).toBe("ACEPTADA");
 
         const trace = String(sheet.getRow(5).getCell(16).value);
-        expect(trace).toContain("Fuente de búsqueda: Documento (fallback -- no había Códigos Adquiridos)");
+        expect(trace).toContain("Fuente de búsqueda: Factura (todas sus líneas)");
     });
 
     it("usedFallback=false (encontro directo por codigo adquirido) -- la trazabilidad tambien lo dice", async () => {
@@ -230,8 +230,7 @@ describe("Rule004Exporter", () => {
         const sheet = workbook.worksheets[0];
 
         const trace = String(sheet.getRow(5).getCell(16).value);
-        expect(trace).toContain("Fuente de búsqueda: Códigos Adquiridos");
-        expect(trace).not.toContain("fallback");
+        expect(trace).toContain("Fuente de búsqueda: Factura, acotada a los Códigos Adquiridos");
     });
 
     it("documento SI encontrado, con validacion de costo -- muestra INCIDENCIA/ACEPTADA, no la etiqueta de 'no registrada'", async () => {

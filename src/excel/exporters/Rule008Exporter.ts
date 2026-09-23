@@ -8,6 +8,11 @@ import { DateUtils } from "../helpers/dateutils";
 export interface Rule008Metadata {
     source: string;
     month: number;
+    expectedValue?: string;
+    foundValue?: string;
+    stock?: number;
+    date?: string;
+    document?: string;
 }
 export class Rule008Exporter extends BaseExcelExporter {
     async export(
@@ -45,20 +50,28 @@ export class Rule008Exporter extends BaseExcelExporter {
         const rows: AuditFindingRow[] = [];
         for (const result of results) {
             const metadata = result.metadata as Rule008Metadata;
+            const fromInventory = metadata.source?.startsWith("INVENTARIO");
             rows.push({
                 period: DateUtils.monthName(metadata.month),
                 productCode: result.product_code,
                 productDescription: result.product_name,
-                inconsistencyType: "Producto no encontrado en el inventario",
-                expectedValue: "Producto registrado",
-                foundValue: "Producto inexistente",
+                inconsistencyType: fromInventory
+                    ? "Código del inventario de cierre no existe en el Kardex de enero"
+                    : "Código del Kardex de enero no existe en el inventario de cierre",
+                expectedValue: metadata.expectedValue ?? result.product_code,
+                foundValue: metadata.foundValue ?? (fromInventory
+                    ? "Producto inexistente en el Kardex"
+                    : "Producto inexistente en el inventario"),
                 difference: "No aplica",
                 differencePercent: undefined,
                 riskLevel: result.risk_level,
                 traceability: [
-                    `Origen: ${metadata.source}`,
+                    `Origen: ${fromInventory ? "Inventario al cierre del ejercicio anterior" : "Kardex de enero"}`,
                     `Código: ${result.product_code}`,
-                    `Producto: ${result.product_name}`
+                    `Producto: ${result.product_name}`,
+                    ...(metadata.stock !== undefined ? [`Stock en inventario: ${metadata.stock}`] : []),
+                    ...(metadata.document ? [`Documento: ${metadata.document}`] : []),
+                    ...(metadata.date ? [`Fecha: ${metadata.date}`] : [])
                 ].join("\n")
             });
         }

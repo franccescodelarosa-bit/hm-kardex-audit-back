@@ -111,7 +111,7 @@ export class Rule003Exporter extends BaseExcelExporter {
                     `Mes Inicio: ${mesInicio}`,
                     `Costo Unitario Final: ${finalBalance.unitCost}`,
                     `Costo Unitario Inicial: ${initialBalance.unitCost}`,
-                    `Campos con diferencia: Costo Unitario`
+                    this.fieldLegend(metadata, "Costo Unitario")
                 ].join("\n")
             });
 
@@ -142,10 +142,17 @@ export class Rule003Exporter extends BaseExcelExporter {
                     `Mes Inicio: ${mesInicio}`,
                     `Costo Total Final: ${finalBalance.totalCost}`,
                     `Costo Total Inicial: ${initialBalance.totalCost}`,
-                    `Campos con diferencia: Costo Total`
+                    this.fieldLegend(metadata, "Costo Total")
                 ].join("\n")
             });
         }
         return rows;
+    }
+
+    private fieldLegend(metadata: Rule003Metadata, field: string): string {
+        if (!metadata.differences || metadata.differences.includes(field)) {
+            return `Campos con diferencia: ${field}`;
+        }
+        return `Sin diferencia en ${field}`;
     }
 }
