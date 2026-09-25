@@ -56,4 +56,58 @@ describe("Rule008Exporter", () => {
 
         expect(sheet.getRow(5).getCell(1).value).toBe("Marzo");
     });
+
+    it("AB4 (Kardex de enero, no en inventario): esperado = código, encontrado = 'Producto inexistente en el inventario'", async () => {
+        const exporter = new Rule008Exporter();
+        const results = [
+            {
+                product_code: "92324",
+                product_name: "BILLETERA OAKLEY",
+                risk_level: "ALTO",
+                metadata: {
+                    source: "KARDEX",
+                    month: 1,
+                    expectedValue: "92324",
+                    foundValue: "Producto inexistente en el inventario",
+                    date: "2025-01-10",
+                    document: "01 FACTURA F001 00000102"
+                }
+            }
+        ];
+
+        const workbook = await exporter.export(results, header);
+        const row = workbook.worksheets[0].getRow(5);
+
+        expect(row.getCell(1).value).toBe("Enero");
+        expect(row.getCell(4).value).toBe("Código del Kardex de enero no existe en el inventario de cierre");
+        expect(row.getCell(5).value).toBe("92324");
+        expect(row.getCell(6).value).toBe("Producto inexistente en el inventario");
+        expect(String(row.getCell(10).value)).toContain("Origen: Kardex de enero");
+    });
+
+    it("XY1 (inventario de cierre, no en Kardex de enero): esperado = código, encontrado = 'Producto inexistente en el Kardex'", async () => {
+        const exporter = new Rule008Exporter();
+        const results = [
+            {
+                product_code: "28834",
+                product_name: "PANTALON BRONCO",
+                risk_level: "ALTO",
+                metadata: {
+                    source: "INVENTARIO_INICIAL",
+                    month: 1,
+                    expectedValue: "28834",
+                    foundValue: "Producto inexistente en el Kardex",
+                    stock: 0
+                }
+            }
+        ];
+
+        const workbook = await exporter.export(results, header);
+        const row = workbook.worksheets[0].getRow(5);
+
+        expect(row.getCell(4).value).toBe("Código del inventario de cierre no existe en el Kardex de enero");
+        expect(row.getCell(5).value).toBe("28834");
+        expect(row.getCell(6).value).toBe("Producto inexistente en el Kardex");
+        expect(String(row.getCell(10).value)).toContain("Stock en inventario: 0");
+    });
 });

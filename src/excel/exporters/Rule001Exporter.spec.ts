@@ -236,4 +236,37 @@ describe("Rule001Exporter", () => {
 
         expect(sheet.getRow(5).getCell(4).value).toBe("Producto no encontrado en Kardex");
     });
+
+    it("PRODUCT_NOT_FOUND nuevo genera una fila por cada valor del inventario que requiere contraste", async () => {
+        const exporter = new Rule001Exporter();
+        const workbook = await exporter.export([{
+            error_type: "PRODUCT_NOT_FOUND",
+            product_code: "028834",
+            product_name: "PRODUCTO SIN KARDEX",
+            risk_level: "CRITICO",
+            description: "El producto no existe en el Kardex.",
+            recommendation: "Verifique que el producto exista en ambos archivos.",
+            metadata: {
+                inventoryCode: "028834",
+                normalizedCode: "28834",
+                inventoryStock: 0,
+                kardexStock: 0,
+                inventoryUnitCost: 73.24,
+                kardexUnitCost: 0,
+                inventoryTotalCost: 10,
+                kardexTotalCost: 0,
+                kardexMovements: 0,
+                missingFields: ["Costo Unitario", "Costo Total"]
+            }
+        }], header);
+        const sheet = workbook.worksheets[0];
+
+        expect(sheet.getRow(5).getCell(4).value).toBe("Costo Unitario - Producto no encontrado en Kardex");
+        expect(sheet.getRow(5).getCell(5).value).toBe(73.24);
+        expect(sheet.getRow(6).getCell(4).value).toBe("Costo Total - Producto no encontrado en Kardex");
+        expect(sheet.getRow(6).getCell(5).value).toBe(10);
+        expect(String(sheet.getRow(5).getCell(10).value)).toContain("Código Normalizado: 28834");
+        expect(String(sheet.getRow(5).getCell(10).value)).toContain("Costo Unitario Kardex: 0");
+        expect(sheet.getRow(7).getCell(4).value).toBeFalsy();
+    });
 });

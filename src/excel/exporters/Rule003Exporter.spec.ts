@@ -45,7 +45,9 @@ describe("Rule003Exporter", () => {
         expect(sheet.getRow(5).getCell(4).value).toBe("Continuidad de Costo Unitario");
         expect(sheet.getRow(5).getCell(7).value).toBe(0); // diferencia
         const unitRowTrace = String(sheet.getRow(5).getCell(10).value);
-        expect(unitRowTrace).toContain("Campos con diferencia: Costo Unitario");
+        // La fila se muestra, pero NO dice que el Costo Unitario tenga diferencia
+        expect(unitRowTrace).toContain("Sin diferencia en Costo Unitario");
+        expect(unitRowTrace).not.toContain("Campos con diferencia");
         expect(unitRowTrace).not.toContain("Costo Total");
 
         // Fila 2: Costo Total, con la diferencia real
