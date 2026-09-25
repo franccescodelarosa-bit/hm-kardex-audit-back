@@ -19,6 +19,8 @@ export interface Rule003Metadata {
         totalCost: number;
     } | null;
     differences?: string[];
+    // campos del cierre distintos de 0 cuando el producto no pasa al mes siguiente
+    missingFields?: string[];
 }
 export class Rule003Exporter extends BaseExcelExporter {
     async export(
@@ -65,23 +67,25 @@ export class Rule003Exporter extends BaseExcelExporter {
             const mesCierre = DateUtils.monthName(metadata.fromIndex);
             const mesInicio = DateUtils.monthName(metadata.toIndex);
 
+            if (result.error_type === "INITIAL_BALANCE_NOT_FOUND_NEXT_MONTH") {
+                rows.push(...this.missingRows(
+                    result,
+                    metadata,
+                    "Sin Saldo Inicial en el mes siguiente",
+                    "Sin Saldo Inicial (TipoOp 16)",
+                    `El producto existe en ${mesInicio}, pero no tiene Saldo Inicial (TipoOp 16) en ${mesInicio} — no se puede validar la continuidad.`
+                ));
+                continue;
+            }
+
             if (!metadata.initialBalance) {
-                rows.push({
-                    period: `${mesCierre} → ${mesInicio}`,
-                    productCode: result.product_code,
-                    productDescription: result.product_name,
-                    inconsistencyType: "Producto no encontrado en el mes siguiente",
-                    expectedValue: metadata.finalBalance?.totalCost ?? 0,
-                    foundValue: "Producto no encontrado",
-                    difference: "No aplicable",
-                    riskLevel: result.risk_level,
-                    traceability: [
-                        `Mes de Cierre: ${mesCierre}`,
-                        `Costo Total Final (${mesCierre}): ${metadata.finalBalance?.totalCost ?? 0}`,
-                        `Mes Siguiente: ${mesInicio}`,
-                        `El producto no tiene Kardex registrado en ${mesInicio} — no se puede validar la continuidad.`
-                    ].join("\n")
-                });
+                rows.push(...this.missingRows(
+                    result,
+                    metadata,
+                    "Producto no encontrado en el mes siguiente",
+                    "Producto no encontrado",
+                    `El producto no tiene Kardex registrado en ${mesInicio} — no se puede validar la continuidad.`
+                ));
                 continue;
             }
 
@@ -127,5 +131,48 @@ export class Rule003Exporter extends BaseExcelExporter {
             }
         }
         return rows;
+    }
+    /*
+     * Producto que no pasa al mes siguiente (no aparece o no tiene op 16):
+     * una fila por cada campo del cierre distinto de 0 (decisión de la
+     * usuaria). Registros viejos sin `missingFields`: una sola fila con el
+     * Costo Total, como antes.
+     */
+    private missingRows(
+        result: any,
+        metadata: Rule003Metadata,
+        label: string,
+        foundValue: string,
+        explanation: string
+    ): AuditFindingRow[] {
+        const mesCierre = DateUtils.monthName(metadata.fromIndex);
+        const mesInicio = DateUtils.monthName(metadata.toIndex);
+        const valuesByField: Record<string, number> = {
+            "Cantidad": metadata.finalBalance?.quantity ?? 0,
+            "Costo Unitario": metadata.finalBalance?.unitCost ?? 0,
+            "Costo Total": metadata.finalBalance?.totalCost ?? 0
+        };
+        const fields = metadata.missingFields?.length
+            ? metadata.missingFields
+            : [null];
+
+        return fields.map(field => ({
+            period: `${mesCierre} → ${mesInicio}`,
+            productCode: result.product_code,
+            productDescription: result.product_name,
+            inconsistencyType: field ? `${field} - ${label}` : label,
+            expectedValue: field ? valuesByField[field] : valuesByField["Costo Total"],
+            foundValue,
+            difference: "No aplicable",
+            riskLevel: result.risk_level,
+            traceability: [
+                `Mes de Cierre: ${mesCierre}`,
+                `Cantidad Final (${mesCierre}): ${valuesByField["Cantidad"]}`,
+                `Costo Unitario Final (${mesCierre}): ${valuesByField["Costo Unitario"]}`,
+                `Costo Total Final (${mesCierre}): ${valuesByField["Costo Total"]}`,
+                `Mes Siguiente: ${mesInicio}`,
+                explanation
+            ].join("\n")
+        }));
     }
 }

@@ -158,4 +158,80 @@ describe("Rule003Exporter", () => {
         expect(sheet.getRow(5).getCell(6).value).toBe("Producto no encontrado");
         expect(sheet.getRow(5).getCell(7).value).toBe("No aplicable");
     });
+
+    it("INITIAL_BALANCE_NOT_FOUND_NEXT_MONTH: 'Sin Saldo Inicial en el mes siguiente', encontrado dice que falta la op 16", async () => {
+        const exporter = new Rule003Exporter();
+        const workbook = await exporter.export([{
+            error_type: "INITIAL_BALANCE_NOT_FOUND_NEXT_MONTH",
+            product_code: "000001",
+            product_name: "PRODUCTO A",
+            risk_level: "ALTO",
+            metadata: {
+                fromIndex: 3,
+                toIndex: 4,
+                finalBalance: { quantity: 10, unitCost: 5, totalCost: 50 },
+                initialBalance: null
+            }
+        }], header);
+        const sheet = workbook.worksheets[0];
+
+        expect(sheet.rowCount).toBe(5);
+        expect(sheet.getRow(5).getCell(1).value).toBe("Marzo → Abril");
+        expect(sheet.getRow(5).getCell(4).value).toBe("Sin Saldo Inicial en el mes siguiente");
+        expect(sheet.getRow(5).getCell(5).value).toBe(50);
+        expect(sheet.getRow(5).getCell(6).value).toBe("Sin Saldo Inicial (TipoOp 16)");
+        expect(sheet.getRow(5).getCell(7).value).toBe("No aplicable");
+        const trace = String(sheet.getRow(5).getCell(10).value);
+        expect(trace).toContain("no tiene Saldo Inicial (TipoOp 16) en Abril");
+        expect(trace).not.toContain("null");
+    });
+
+    it("PRODUCT_NOT_FOUND_NEXT_MONTH con missingFields: una fila por campo distinto de 0, esperado = valor de ese campo", async () => {
+        const exporter = new Rule003Exporter();
+        const workbook = await exporter.export([{
+            error_type: "PRODUCT_NOT_FOUND_NEXT_MONTH",
+            product_code: "000001",
+            product_name: "PRODUCTO A",
+            risk_level: "ALTO",
+            metadata: {
+                fromIndex: 1,
+                toIndex: 2,
+                finalBalance: { quantity: 10, unitCost: 0, totalCost: 50 },
+                initialBalance: null,
+                missingFields: ["Cantidad", "Costo Total"]
+            }
+        }], header);
+        const sheet = workbook.worksheets[0];
+
+        expect(sheet.rowCount).toBe(6); // 4 de header + 2 campos
+        expect(sheet.getRow(5).getCell(4).value).toBe("Cantidad - Producto no encontrado en el mes siguiente");
+        expect(sheet.getRow(5).getCell(5).value).toBe(10);
+        expect(sheet.getRow(5).getCell(6).value).toBe("Producto no encontrado");
+        expect(sheet.getRow(6).getCell(4).value).toBe("Costo Total - Producto no encontrado en el mes siguiente");
+        expect(sheet.getRow(6).getCell(5).value).toBe(50);
+    });
+
+    it("INITIAL_BALANCE_NOT_FOUND_NEXT_MONTH con missingFields: una fila por campo distinto de 0", async () => {
+        const exporter = new Rule003Exporter();
+        const workbook = await exporter.export([{
+            error_type: "INITIAL_BALANCE_NOT_FOUND_NEXT_MONTH",
+            product_code: "000001",
+            product_name: "PRODUCTO A",
+            risk_level: "ALTO",
+            metadata: {
+                fromIndex: 1,
+                toIndex: 2,
+                finalBalance: { quantity: 0, unitCost: 142.06, totalCost: 0 },
+                initialBalance: null,
+                missingFields: ["Costo Unitario"]
+            }
+        }], header);
+        const sheet = workbook.worksheets[0];
+
+        expect(sheet.rowCount).toBe(5);
+        expect(sheet.getRow(5).getCell(4).value).toBe("Costo Unitario - Sin Saldo Inicial en el mes siguiente");
+        expect(sheet.getRow(5).getCell(5).value).toBe(142.06);
+        expect(sheet.getRow(5).getCell(6).value).toBe("Sin Saldo Inicial (TipoOp 16)");
+    });
 });
+
