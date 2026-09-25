@@ -21,6 +21,8 @@ export interface Rule001Metadata {
 
 export class Rule001Exporter extends BaseExcelExporter {
 
+    private static readonly JANUARY = 1;
+
     private static equals(a: number, b: number): boolean {
         return Math.abs(a - b) < 0.01;
     }
@@ -105,10 +107,10 @@ export class Rule001Exporter extends BaseExcelExporter {
             const errorType =
                 result.error_type;
 
-            const month =
-                result.month && result.month > 0
-                    ? DateUtils.monthName(result.month)
-                    : "Sin período";
+            // RULE_001 siempre contrasta contra el Kardex de enero, incluso
+            // cuando el producto no aparece. Registros viejos guardaban
+            // month 0 para esos casos, por eso no se lee de result.month.
+            const month = DateUtils.monthName(Rule001Exporter.JANUARY);
 
             /*
              * ========================================================
@@ -166,6 +168,47 @@ export class Rule001Exporter extends BaseExcelExporter {
 
             /*
              * ========================================================
+             * PRODUCTO EN ENERO SIN SALDO INICIAL (TipoOp 16)
+             * ========================================================
+             */
+
+            if (errorType === "INITIAL_BALANCE_NOT_FOUND") {
+                const inventoryStock = metadata.inventoryStock ?? 0;
+                const inventoryUnitCost = metadata.inventoryUnitCost ?? 0;
+                const inventoryTotalCost = metadata.inventoryTotalCost ?? 0;
+                const valuesByField: Record<string, number> = {
+                    "Cantidad": inventoryStock,
+                    "Costo Unitario": inventoryUnitCost,
+                    "Costo Total": inventoryTotalCost
+                };
+
+                for (const field of metadata.missingFields ?? []) {
+                    rows.push({
+                        period: month,
+                        productCode: result.product_code ?? "",
+                        productDescription: result.product_name ?? "",
+                        inconsistencyType: `${field} - Sin Saldo Inicial en Kardex`,
+                        expectedValue: valuesByField[field],
+                        foundValue: "Sin Saldo Inicial (TipoOp 16)",
+                        difference: "No aplicable",
+                        riskLevel: result.risk_level,
+                        traceability: [
+                            puntoDePartida,
+                            `Descripción: ${result.description}`,
+                            `Recomendación: ${result.recommendation}`,
+                            `Código Inventario: ${metadata.inventoryCode ?? result.product_code ?? ""}`,
+                            `Código Normalizado: ${metadata.normalizedCode ?? ""}`,
+                            `${field} Inventario: ${valuesByField[field]}`,
+                            `Movimientos Kardex: ${metadata.kardexMovements ?? 0}`
+                        ].join("\n")
+                    });
+                }
+
+                continue;
+            }
+
+            /*
+             * ========================================================
              * SIN OPERACIONES CON CANTIDAD
              * ========================================================
              *
@@ -179,7 +222,7 @@ export class Rule001Exporter extends BaseExcelExporter {
             if (errorType === "WITHOUT_MOVEMENTS") {
 
                 rows.push({
-                    period: "Sin período",
+                    period: month,
 
                     productCode:
                         result.product_code ?? "",

@@ -54,6 +54,10 @@ export class Rule003Exporter extends BaseExcelExporter {
         return workbook;
     }
 
+    private static equals(a: number, b: number): boolean {
+        return Math.abs(a - b) < 0.01;
+    }
+
     private buildFindings(results: any[]): AuditFindingRow[] {
         const rows: AuditFindingRow[] = [];
         for (const result of results) {
@@ -68,9 +72,8 @@ export class Rule003Exporter extends BaseExcelExporter {
                     productDescription: result.product_name,
                     inconsistencyType: "Producto no encontrado en el mes siguiente",
                     expectedValue: metadata.finalBalance?.totalCost ?? 0,
-                    foundValue: 0,
-                    difference: metadata.finalBalance?.totalCost ?? 0,
-                    differencePercent: 0,
+                    foundValue: "Producto no encontrado",
+                    difference: "No aplicable",
                     riskLevel: result.risk_level,
                     traceability: [
                         `Mes de Cierre: ${mesCierre}`,
@@ -85,74 +88,44 @@ export class Rule003Exporter extends BaseExcelExporter {
             const finalBalance = metadata.finalBalance!;
             const initialBalance = metadata.initialBalance;
 
-            rows.push({
-                period: `${mesCierre} → ${mesInicio}`,
-                productCode: result.product_code,
-                productDescription: result.product_name,
-                inconsistencyType: "Continuidad de Costo Unitario",
-                expectedValue: finalBalance.unitCost,
-                foundValue: initialBalance.unitCost,
-                difference:
-                    finalBalance.unitCost -
-                    initialBalance.unitCost,
-                differencePercent:
-                    finalBalance.unitCost === 0
-                        ? 0
-                        : Math.abs(
-                            (
-                                finalBalance.unitCost -
-                                initialBalance.unitCost
-                            ) /
-                            finalBalance.unitCost
-                        ) * 100,
-                riskLevel: result.risk_level,
-                traceability: [
-                    `Mes Cierre: ${mesCierre}`,
-                    `Mes Inicio: ${mesInicio}`,
-                    `Costo Unitario Final: ${finalBalance.unitCost}`,
-                    `Costo Unitario Inicial: ${initialBalance.unitCost}`,
-                    this.fieldLegend(metadata, "Costo Unitario")
-                ].join("\n")
-            });
+            
+            const fields: { name: string; expected: number; found: number }[] = [
+                { name: "Costo Unitario", expected: finalBalance.unitCost, found: initialBalance.unitCost },
+                { name: "Costo Total", expected: finalBalance.totalCost, found: initialBalance.totalCost }
+            ];
 
-            // COSTO TOTAL -- también siempre visible, misma decisión que arriba.
-            rows.push({
-                period: `${mesCierre} → ${mesInicio}`,
-                productCode: result.product_code,
-                productDescription: result.product_name,
-                inconsistencyType: "Continuidad de Costo Total",
-                expectedValue: finalBalance.totalCost,
-                foundValue: initialBalance.totalCost,
-                difference:
-                    finalBalance.totalCost -
-                    initialBalance.totalCost,
-                differencePercent:
-                    finalBalance.totalCost === 0
-                        ? 0
-                        : Math.abs(
-                            (
-                                finalBalance.totalCost -
-                                initialBalance.totalCost
-                            ) /
-                            finalBalance.totalCost
-                        ) * 100,
-                riskLevel: result.risk_level,
-                traceability: [
-                    `Mes Cierre: ${mesCierre}`,
-                    `Mes Inicio: ${mesInicio}`,
-                    `Costo Total Final: ${finalBalance.totalCost}`,
-                    `Costo Total Inicial: ${initialBalance.totalCost}`,
-                    this.fieldLegend(metadata, "Costo Total")
-                ].join("\n")
-            });
+            for (const field of fields) {
+                const hasDifference = metadata.differences
+                    ? metadata.differences.includes(field.name)
+                    : !Rule003Exporter.equals(field.expected, field.found);
+
+                if (!hasDifference) {
+                    continue;
+                }
+
+                rows.push({
+                    period: `${mesCierre} → ${mesInicio}`,
+                    productCode: result.product_code,
+                    productDescription: result.product_name,
+                    inconsistencyType: `Continuidad de ${field.name}`,
+                    expectedValue: field.expected,
+                    foundValue: field.found,
+                    difference: field.expected - field.found,
+                    differencePercent:
+                        field.expected === 0
+                            ? 0
+                            : Math.abs((field.expected - field.found) / field.expected) * 100,
+                    riskLevel: result.risk_level,
+                    traceability: [
+                        `Mes Cierre: ${mesCierre}`,
+                        `Mes Inicio: ${mesInicio}`,
+                        `${field.name} Final: ${field.expected}`,
+                        `${field.name} Inicial: ${field.found}`,
+                        `Campos con diferencia: ${field.name}`
+                    ].join("\n")
+                });
+            }
         }
         return rows;
-    }
-
-    private fieldLegend(metadata: Rule003Metadata, field: string): string {
-        if (!metadata.differences || metadata.differences.includes(field)) {
-            return `Campos con diferencia: ${field}`;
-        }
-        return `Sin diferencia en ${field}`;
     }
 }
