@@ -43,16 +43,6 @@ export class Rule003Exporter extends BaseExcelExporter {
             worksheet,
             findings
         );
-        worksheet.views = [
-            {
-                state: "frozen",
-                ySplit: 4
-            }
-        ];
-        worksheet.autoFilter = {
-            from: "A4",
-            to: "J4"
-        };
         return workbook;
     }
 
@@ -92,21 +82,24 @@ export class Rule003Exporter extends BaseExcelExporter {
             const finalBalance = metadata.finalBalance!;
             const initialBalance = metadata.initialBalance;
 
-            
+
             const fields: { name: string; expected: number; found: number }[] = [
                 { name: "Costo Unitario", expected: finalBalance.unitCost, found: initialBalance.unitCost },
                 { name: "Costo Total", expected: finalBalance.totalCost, found: initialBalance.totalCost }
             ];
 
-            for (const field of fields) {
-                const hasDifference = metadata.differences
+            const failing = fields.filter(field =>
+                metadata.differences
                     ? metadata.differences.includes(field.name)
-                    : !Rule003Exporter.equals(field.expected, field.found);
+                    : !Rule003Exporter.equals(field.expected, field.found)
+            );
 
-                if (!hasDifference) {
-                    continue;
-                }
+            // Si ninguno de los dos costos falla, no hay hallazgo.
+            if (failing.length === 0) {
+                continue;
+            }
 
+            for (const field of fields) {
                 rows.push({
                     period: `${mesCierre} → ${mesInicio}`,
                     productCode: result.product_code,
@@ -125,18 +118,33 @@ export class Rule003Exporter extends BaseExcelExporter {
                         `Mes Inicio: ${mesInicio}`,
                         `${field.name} Final: ${field.expected}`,
                         `${field.name} Inicial: ${field.found}`,
-                        `Campos con diferencia: ${field.name}`
+                        Rule003Exporter.differenceNote(field, failing.includes(field))
                     ].join("\n")
                 });
             }
         }
         return rows;
     }
+
+    private static differenceNote(
+        field: { name: string; expected: number; found: number },
+        failed: boolean
+    ): string {
+        if (failed) {
+            return `Campos con diferencia: ${field.name}`;
+        }
+        if (!Rule003Exporter.equals(field.expected, field.found)) {
+            return `No se compara ${field.name}: sin unidades en ambos saldos`;
+        }
+        return `Sin diferencia en ${field.name}`;
+    }
+
     /*
      * Producto que no pasa al mes siguiente (no aparece o no tiene op 16):
-     * una fila por cada campo del cierre distinto de 0 (decisión de la
-     * usuaria). Registros viejos sin `missingFields`: una sola fila con el
-     * Costo Total, como antes.
+     * la Cantidad solo si el cierre la trae distinta de 0 (decisión de la
+     * usuaria), y SIEMPRE las dos filas de costo (pedido del cliente: aunque
+     * solo uno falle se muestran ambos). Registros viejos sin
+     * `missingFields`: una sola fila con el Costo Total, como antes.
      */
     private missingRows(
         result: any,
@@ -152,8 +160,11 @@ export class Rule003Exporter extends BaseExcelExporter {
             "Costo Unitario": metadata.finalBalance?.unitCost ?? 0,
             "Costo Total": metadata.finalBalance?.totalCost ?? 0
         };
-        const fields = metadata.missingFields?.length
-            ? metadata.missingFields
+        const missing = metadata.missingFields ?? [];
+        const fields: (string | null)[] = missing.length
+            ? ["Cantidad", "Costo Unitario", "Costo Total"].filter(
+                field => field !== "Cantidad" || missing.includes("Cantidad")
+            )
             : [null];
 
         return fields.map(field => ({
@@ -171,7 +182,8 @@ export class Rule003Exporter extends BaseExcelExporter {
                 `Costo Unitario Final (${mesCierre}): ${valuesByField["Costo Unitario"]}`,
                 `Costo Total Final (${mesCierre}): ${valuesByField["Costo Total"]}`,
                 `Mes Siguiente: ${mesInicio}`,
-                explanation
+                explanation,
+                ...(field && !missing.includes(field) ? [`Sin diferencia en ${field}`] : [])
             ].join("\n")
         }));
     }

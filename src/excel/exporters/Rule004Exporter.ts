@@ -65,80 +65,35 @@ export class Rule004Exporter extends BaseExcelExporter {
             header,
             "P"
         );
-        this.writeRule004TableHeader(worksheet);
+        this.writeTableHeader(worksheet, Rule004Exporter.LABELS);
         const findings = this.buildFindings(results);
         this.writeRule004Rows(worksheet, findings);
-        worksheet.views = [
-            {
-                state: "frozen",
-                ySplit: 4
-            }
-        ];
-        worksheet.autoFilter = {
-            from: "A4",
-            to: "P4"
-        };
         return workbook;
     }
 
-    private writeRule004TableHeader(worksheet: ExcelJS.Worksheet) {
-        worksheet.addRow([
-            "Periodo",
-            "Fecha de Emisión",
-            "Fecha de Ingreso a Almacén",
-            "RUC Proveedor",
-            "Proveedor",
-            "Documento",
-            "Documento Normalizado",
-            "Código del producto",
-            "Descripción del producto",
-            "Tipo de inconsistencia",
-            "Valor esperado",
-            "Valor encontrado",
-            "Diferencia",
-            "% Diferencia",
-            "Nivel de riesgo",
-            "Trazabilidad"
-        ]);
-        const headerRow = worksheet.getRow(4);
-        headerRow.font = { bold: true };
-        headerRow.alignment = { vertical: "middle", horizontal: "center" };
-        headerRow.eachCell(cell => {
-            cell.fill = {
-                type: "pattern",
-                pattern: "solid",
-                fgColor: { argb: "D9EAD3" }
-            };
-            cell.border = {
-                top: { style: "thin" },
-                left: { style: "thin" },
-                bottom: { style: "thin" },
-                right: { style: "thin" }
-            };
-        });
-        worksheet.columns = [
-            { width: 14 }, // Periodo
-            { width: 14 }, // Fecha Emisión
-            { width: 16 }, // Fecha Almacén
-            { width: 16 }, // RUC Proveedor
-            { width: 28 }, // Proveedor
-            { width: 20 }, // Documento
-            { width: 20 }, // Documento Normalizado
-            { width: 22 }, // Código del producto
-            { width: 40 }, // Descripción
-            { width: 30 }, // Tipo
-            { width: 18 }, // Esperado
-            { width: 18 }, // Encontrado
-            { width: 16 }, // Diferencia
-            { width: 14 }, // %
-            { width: 16 }, // Riesgo
-            { width: 50 }  // Trazabilidad
-        ];
-    }
+    private static readonly LABELS = [
+        "Periodo",
+        "Fecha de Emisión",
+        "Fecha de Ingreso a Almacén",
+        "RUC Proveedor",
+        "Proveedor",
+        "Documento",
+        "Documento Normalizado",
+        "Código del producto",
+        "Descripción del producto",
+        "Tipo de inconsistencia",
+        "Valor esperado",
+        "Valor encontrado",
+        "Diferencia",
+        "% Diferencia",
+        "Nivel de riesgo",
+        "Trazabilidad"
+    ];
 
     private writeRule004Rows(worksheet: ExcelJS.Worksheet, rows: Rule004Row[]) {
-        for (const row of rows) {
-            const excelRow = worksheet.addRow([
+        this.writeTableRows(
+            worksheet,
+            rows.map(row => [
                 row.period,
                 row.issueDate,
                 row.warehouseDate,
@@ -157,15 +112,8 @@ export class Rule004Exporter extends BaseExcelExporter {
                     : `${row.differencePercent.toFixed(2)} %`,
                 row.riskLevel,
                 row.traceability
-            ]);
-            excelRow.eachCell(cell => {
-                cell.alignment = { vertical: "top" };
-            });
-            excelRow.getCell(16).alignment = {
-                wrapText: true,
-                vertical: "top"
-            };
-        }
+            ])
+        );
     }
 
     private buildFindings(results: any[]): Rule004Row[] {

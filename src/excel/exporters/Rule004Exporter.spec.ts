@@ -47,12 +47,12 @@ describe("Rule004Exporter", () => {
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
 
-        expect(sheet.getRow(5).getCell(2).value).toBe("2023-12-06");
-        expect(sheet.getRow(5).getCell(3).value).toBe("2024-01-04");
-        expect(sheet.getRow(5).getCell(4).value).toBe("20136836545");
-        expect(sheet.getRow(5).getCell(5).value).toBe("ARDILES SAC");
-        expect(sheet.getRow(5).getCell(6).value).toBe("Fac-F001-501064");
-        expect(sheet.getRow(5).getCell(7).value).toBe("F00100501064");
+        expect(sheet.getRow(4).getCell(2).value).toBe("2023-12-06");
+        expect(sheet.getRow(4).getCell(3).value).toBe("2024-01-04");
+        expect(sheet.getRow(4).getCell(4).value).toBe("20136836545");
+        expect(sheet.getRow(4).getCell(5).value).toBe("ARDILES SAC");
+        expect(sheet.getRow(4).getCell(6).value).toBe("Fac-F001-501064");
+        expect(sheet.getRow(4).getCell(7).value).toBe("F00100501064");
     });
 
     it("codigo/descripcion (con comas), esperado/encontrado y tipo de inconsistencia siguen en su lugar, corridos por las columnas nuevas", async () => {
@@ -82,13 +82,13 @@ describe("Rule004Exporter", () => {
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
 
-        expect(sheet.getRow(5).getCell(8).value).toBe("000123, 000456");
-        expect(sheet.getRow(5).getCell(9).value).toBe("PEGAMENTO X, TORNILLO Y");
-        expect(sheet.getRow(5).getCell(10).value).toBe("Mercadería en tránsito no registrada");
-        expect(sheet.getRow(5).getCell(11).value).toBe(850); // esperado
-        expect(sheet.getRow(5).getCell(12).value).toBe(820); // encontrado
+        expect(sheet.getRow(4).getCell(8).value).toBe("000123, 000456");
+        expect(sheet.getRow(4).getCell(9).value).toBe("PEGAMENTO X, TORNILLO Y");
+        expect(sheet.getRow(4).getCell(10).value).toBe("Mercadería en tránsito no registrada");
+        expect(sheet.getRow(4).getCell(11).value).toBe(850); // esperado
+        expect(sheet.getRow(4).getCell(12).value).toBe(820); // encontrado
 
-        const trace = String(sheet.getRow(5).getCell(16).value);
+        const trace = String(sheet.getRow(4).getCell(16).value);
         expect(trace).not.toContain("undefined");
         expect(trace).toContain("Productos Encontrados: 000123 - PEGAMENTO X, 000456 - TORNILLO Y");
         // Ya no se repiten en la trazabilidad -- ahora son columnas propias
@@ -120,13 +120,13 @@ describe("Rule004Exporter", () => {
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
 
-        expect(String(sheet.getRow(5).getCell(8).value)).toBe("");
-        expect(String(sheet.getRow(5).getCell(9).value)).toBe("");
-        expect(sheet.getRow(5).getCell(10).value).toBe("Mercadería en tránsito no registrada");
-        expect(sheet.getRow(5).getCell(11).value).toBe(500);
-        expect(sheet.getRow(5).getCell(12).value).toBe("Documento no encontrado");
-        expect(sheet.getRow(5).getCell(13).value).toBe("No aplicable");
-        expect(sheet.getRow(5).getCell(14).value).toBe("No aplicable");
+        expect(String(sheet.getRow(4).getCell(8).value)).toBe("");
+        expect(String(sheet.getRow(4).getCell(9).value)).toBe("");
+        expect(sheet.getRow(4).getCell(10).value).toBe("Mercadería en tránsito no registrada");
+        expect(sheet.getRow(4).getCell(11).value).toBe(500);
+        expect(sheet.getRow(4).getCell(12).value).toBe("Documento no encontrado");
+        expect(sheet.getRow(4).getCell(13).value).toBe("No aplicable");
+        expect(sheet.getRow(4).getCell(14).value).toBe("No aplicable");
     });
 
     it("registro viejo con noEvaluable=true se muestra como 'Registrada en otro mes' (decisión del equipo)", async () => {
@@ -157,10 +157,10 @@ describe("Rule004Exporter", () => {
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
 
-        expect(sheet.getRow(5).getCell(10).value).toBe("Registrada en otro mes");
-        expect(sheet.getRow(5).getCell(12).value).toBe("Registrada en otro mes");
-        expect(sheet.getRow(5).getCell(13).value).toBe("No aplicable");
-        expect(sheet.getRow(5).getCell(14).value).toBe("No aplicable");
+        expect(sheet.getRow(4).getCell(10).value).toBe("Registrada en otro mes");
+        expect(sheet.getRow(4).getCell(12).value).toBe("Registrada en otro mes");
+        expect(sheet.getRow(4).getCell(13).value).toBe("No aplicable");
+        expect(sheet.getRow(4).getCell(14).value).toBe("No aplicable");
     });
 
     it("usedFallback=true (encontro por documento, no por codigo) -- la trazabilidad lo dice explicitamente", async () => {
@@ -192,9 +192,9 @@ describe("Rule004Exporter", () => {
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
 
-        expect(sheet.getRow(5).getCell(10).value).toBe("INCIDENCIA");
+        expect(sheet.getRow(4).getCell(10).value).toBe("INCIDENCIA");
 
-        const trace = String(sheet.getRow(5).getCell(16).value);
+        const trace = String(sheet.getRow(4).getCell(16).value);
         expect(trace).toContain("Fuente de búsqueda: Factura (todas sus líneas)");
     });
 
@@ -227,7 +227,7 @@ describe("Rule004Exporter", () => {
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
 
-        const trace = String(sheet.getRow(5).getCell(16).value);
+        const trace = String(sheet.getRow(4).getCell(16).value);
         expect(trace).toContain("Fuente de búsqueda: Factura, acotada a los Códigos Adquiridos");
     });
 
@@ -259,10 +259,10 @@ describe("Rule004Exporter", () => {
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
 
-        expect(sheet.getRow(5).getCell(10).value).toBe("INCIDENCIA");
-        expect(sheet.getRow(5).getCell(10).value).not.toBe("Mercadería en tránsito no registrada");
+        expect(sheet.getRow(4).getCell(10).value).toBe("INCIDENCIA");
+        expect(sheet.getRow(4).getCell(10).value).not.toBe("Mercadería en tránsito no registrada");
 
-        const trace = String(sheet.getRow(5).getCell(16).value);
+        const trace = String(sheet.getRow(4).getCell(16).value);
         expect(trace).toContain("Umbral permitido: 5");
     });
 
@@ -290,14 +290,14 @@ describe("Rule004Exporter", () => {
         ], header);
         const sheet = workbook.worksheets[0];
 
-        expect(sheet.rowCount).toBe(6); // 4 de header + ACEPTADA + INCIDENCIA
-        expect(sheet.getRow(5).getCell(6).value).toBe("Fac-F001-1");
-        expect(sheet.getRow(5).getCell(10).value).toBe("ACEPTADA");
-        expect(sheet.getRow(5).getCell(12).value).toBe(500);
-        expect(String(sheet.getRow(5).getCell(16).value)).toContain("Resultado: ACEPTADA");
-        expect(sheet.getRow(6).getCell(6).value).toBe("Fac-F001-2");
-        expect(sheet.getRow(6).getCell(10).value).toBe("INCIDENCIA");
-        expect(String(sheet.getRow(6).getCell(16).value)).toContain("Resultado: CONTINGENCIA");
+        expect(sheet.rowCount).toBe(5); // 3 de header + ACEPTADA + INCIDENCIA
+        expect(sheet.getRow(4).getCell(6).value).toBe("Fac-F001-1");
+        expect(sheet.getRow(4).getCell(10).value).toBe("ACEPTADA");
+        expect(sheet.getRow(4).getCell(12).value).toBe(500);
+        expect(String(sheet.getRow(4).getCell(16).value)).toContain("Resultado: ACEPTADA");
+        expect(sheet.getRow(5).getCell(6).value).toBe("Fac-F001-2");
+        expect(sheet.getRow(5).getCell(10).value).toBe("INCIDENCIA");
+        expect(String(sheet.getRow(5).getCell(16).value)).toContain("Resultado: CONTINGENCIA");
     });
 
     it("TRANSIT_REGISTERED_OTHER_MONTH: 'Registrada en otro mes', encontrado dice en qué mes se registró", async () => {
@@ -319,14 +319,14 @@ describe("Rule004Exporter", () => {
         }], header);
         const sheet = workbook.worksheets[0];
 
-        expect(sheet.getRow(5).getCell(1).value).toBe("Marzo");
-        expect(sheet.getRow(5).getCell(10).value).toBe("Registrada en otro mes");
-        expect(sheet.getRow(5).getCell(11).value).toBe(1000);
-        expect(sheet.getRow(5).getCell(12).value).toBe("Registrada en Abril");
-        expect(sheet.getRow(5).getCell(13).value).toBe("No aplicable");
-        expect(sheet.getRow(5).getCell(14).value).toBe("No aplicable");
+        expect(sheet.getRow(4).getCell(1).value).toBe("Marzo");
+        expect(sheet.getRow(4).getCell(10).value).toBe("Registrada en otro mes");
+        expect(sheet.getRow(4).getCell(11).value).toBe(1000);
+        expect(sheet.getRow(4).getCell(12).value).toBe("Registrada en Abril");
+        expect(sheet.getRow(4).getCell(13).value).toBe("No aplicable");
+        expect(sheet.getRow(4).getCell(14).value).toBe("No aplicable");
 
-        const trace = String(sheet.getRow(5).getCell(16).value);
+        const trace = String(sheet.getRow(4).getCell(16).value);
         expect(trace).toContain("Mes de ingreso al almacén: Marzo");
         expect(trace).toContain("Mes registrado en Kardex: Abril");
     });
@@ -345,8 +345,8 @@ describe("Rule004Exporter", () => {
         }], header);
         const sheet = workbook.worksheets[0];
 
-        expect(sheet.getRow(5).getCell(10).value).toBe("INCIDENCIA");
-        expect(sheet.getRow(5).getCell(14).value).toBe("100.00 %");
+        expect(sheet.getRow(4).getCell(10).value).toBe("INCIDENCIA");
+        expect(sheet.getRow(4).getCell(14).value).toBe("100.00 %");
     });
 
     it("TRANSIT_INVALID_WAREHOUSE_DATE: 'Fecha de ingreso inválida', muestra el texto que vino en la celda (cambio 4)", async () => {
@@ -368,13 +368,13 @@ describe("Rule004Exporter", () => {
         }], header);
         const sheet = workbook.worksheets[0];
 
-        expect(sheet.getRow(5).getCell(1).value).toBe("Sin período");
-        expect(sheet.getRow(5).getCell(10).value).toBe("Fecha de ingreso inválida");
-        expect(sheet.getRow(5).getCell(11).value).toBe(400);
-        expect(sheet.getRow(5).getCell(12).value).toBe("No evaluado");
-        expect(sheet.getRow(5).getCell(13).value).toBe("No aplicable");
-        expect(sheet.getRow(5).getCell(14).value).toBe("No aplicable");
-        expect(String(sheet.getRow(5).getCell(16).value)).toContain("Fecha de ingreso recibida: 15/03/2024");
+        expect(sheet.getRow(4).getCell(1).value).toBe("Sin período");
+        expect(sheet.getRow(4).getCell(10).value).toBe("Fecha de ingreso inválida");
+        expect(sheet.getRow(4).getCell(11).value).toBe(400);
+        expect(sheet.getRow(4).getCell(12).value).toBe("No evaluado");
+        expect(sheet.getRow(4).getCell(13).value).toBe("No aplicable");
+        expect(sheet.getRow(4).getCell(14).value).toBe("No aplicable");
+        expect(String(sheet.getRow(4).getCell(16).value)).toContain("Fecha de ingreso recibida: 15/03/2024");
     });
 });
 

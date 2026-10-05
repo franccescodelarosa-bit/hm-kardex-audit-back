@@ -46,8 +46,8 @@ describe("Rule014Exporter", () => {
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
 
-        expect(sheet.getRow(5).getCell(5).value).toBe(990339.13); // Valor esperado = Cierre real
-        expect(sheet.getRow(5).getCell(6).value).toBe(981696.93); // Valor encontrado = Formula
+        expect(sheet.getRow(4).getCell(5).value).toBe(990339.13); // Valor esperado = Cierre real
+        expect(sheet.getRow(4).getCell(6).value).toBe(981696.93); // Valor encontrado = Formula
     });
 
     it("YA NO existe la fila de Cantidad -- RULE_014 solo valida costo (confirmado contra el diagrama y el Anexo 03)", async () => {
@@ -57,8 +57,8 @@ describe("Rule014Exporter", () => {
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
 
-        expect(sheet.rowCount).toBe(5); // 4 de header + 1 sola fila (costo)
-        expect(sheet.getRow(5).getCell(4).value).not.toBe("Sumatoria Consolidada - Cantidad");
+        expect(sheet.rowCount).toBe(4); // 3 de header + 1 sola fila (costo)
+        expect(sheet.getRow(4).getCell(4).value).not.toBe("Sumatoria Consolidada - Cantidad");
     });
 
     it("la trazabilidad sigue el formato del cliente: Esperado -> definicion de Encontrado -> formula con montos -> Diferencia", async () => {
@@ -68,8 +68,8 @@ describe("Rule014Exporter", () => {
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
 
-        const tipo = sheet.getRow(5).getCell(4).value;
-        const trace = traceText(sheet.getRow(5).getCell(10).value);
+        const tipo = sheet.getRow(4).getCell(4).value;
+        const trace = traceText(sheet.getRow(4).getCell(10).value);
 
         expect(tipo).toBe("Costo valorizado fuera del rango permitido");
 
@@ -105,7 +105,7 @@ describe("Rule014Exporter", () => {
         }];
 
         const workbook = await exporter.export(results, header);
-        const trace = traceText(workbook.worksheets[0].getRow(5).getCell(10).value);
+        const trace = traceText(workbook.worksheets[0].getRow(4).getCell(10).value);
 
         expect(trace).toContain("SEGUN EL KARDEX : S/ 2´446,924.07");
         expect(trace).toContain("S/ 2´475,920.67 + S/ 94,778.22 - S/ 125,977.90");
@@ -120,7 +120,7 @@ describe("Rule014Exporter", () => {
         const results = [{ risk_level: "CRITICO", metadata: baseMetadata() }];
 
         const workbook = await exporter.export(results, header);
-        const value = workbook.worksheets[0].getRow(5).getCell(10).value as any;
+        const value = workbook.worksheets[0].getRow(4).getCell(10).value as any;
         const fragment = (text: string) => value.richText.find((t: any) => t.text === text);
 
         expect(fragment("S/ 990,339.13").font).toMatchObject({ color: { argb: GREEN }, underline: true });
@@ -138,7 +138,7 @@ describe("Rule014Exporter", () => {
         const results = [{ risk_level: "CRITICO", metadata: baseMetadata() }];
 
         const workbook = await exporter.export(results, header);
-        const trace = traceText(workbook.worksheets[0].getRow(5).getCell(10).value);
+        const trace = traceText(workbook.worksheets[0].getRow(4).getCell(10).value);
 
         expect(trace).not.toContain("ERROR DE CONSOLIDACIÓN DEL KARDEX Y LA DIFERENCIA");
     });

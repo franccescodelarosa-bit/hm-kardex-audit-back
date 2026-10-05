@@ -413,6 +413,8 @@ export class AuditResultsRepository {
             },
             select: {
                 year: true,
+                created_at: true,
+                completed_at: true,
                 clients: {
                     select: {
                         business_name: true,
@@ -464,7 +466,8 @@ export class AuditResultsRepository {
             header: {
                 companyName: auditJob!.clients.business_name,
                 ruc: auditJob!.clients.ruc ?? "",
-                year: auditJob!.year
+                year: auditJob!.year,
+                auditDate: auditJob!.completed_at ?? auditJob!.created_at
             },
             rows
         };

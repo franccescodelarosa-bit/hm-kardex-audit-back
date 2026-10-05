@@ -57,21 +57,21 @@ describe("Rule013Exporter", () => {
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
 
-        expect(sheet.rowCount).toBe(7); // 4 de header + 2 (Unitario, una por entrada) + 1 (Total)
+        expect(sheet.rowCount).toBe(6); // 3 de header + 2 (Unitario, una por entrada) + 1 (Total)
 
         // Orden confirmado con el cliente: Salidas -> Costo Unitario de
         // Saldo Final (una fila por entrada) -> Costo Total de Saldo Final.
+        expect(sheet.getRow(4).getCell(4).value).toBe("Costo Unitario de Saldo Final");
+        expect(sheet.getRow(4).getCell(5).value).toBe(358.2); // esperado = archivo, entrada 18/01
+        expect(sheet.getRow(4).getCell(6).value).toBe(346.8); // encontrado = fórmula re-anclada
+
         expect(sheet.getRow(5).getCell(4).value).toBe("Costo Unitario de Saldo Final");
-        expect(sheet.getRow(5).getCell(5).value).toBe(358.2); // esperado = archivo, entrada 18/01
-        expect(sheet.getRow(5).getCell(6).value).toBe(346.8); // encontrado = fórmula re-anclada
+        expect(sheet.getRow(5).getCell(5).value).toBe(712.8); // esperado = archivo, entrada 19/01
+        expect(sheet.getRow(5).getCell(6).value).toBe(712.2); // encontrado = fórmula re-anclada
 
-        expect(sheet.getRow(6).getCell(4).value).toBe("Costo Unitario de Saldo Final");
-        expect(sheet.getRow(6).getCell(5).value).toBe(712.8); // esperado = archivo, entrada 19/01
-        expect(sheet.getRow(6).getCell(6).value).toBe(712.2); // encontrado = fórmula re-anclada
-
-        expect(sheet.getRow(7).getCell(4).value).toBe("Costo Total de Saldo Final");
-        expect(sheet.getRow(7).getCell(5).value).toBe(564.3);
-        expect(sheet.getRow(7).getCell(6).value).toBe(563.825);
+        expect(sheet.getRow(6).getCell(4).value).toBe("Costo Total de Saldo Final");
+        expect(sheet.getRow(6).getCell(5).value).toBe(564.3);
+        expect(sheet.getRow(6).getCell(6).value).toBe(563.825);
     });
 
     it("'Costo Total de Salidas': esperado = lo que dice el archivo, encontrado = lo que la regla calculó con el CPP", async () => {
@@ -92,9 +92,9 @@ describe("Rule013Exporter", () => {
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
 
-        expect(sheet.getRow(5).getCell(4).value).toBe("Costo Total de Salidas");
-        expect(sheet.getRow(5).getCell(5).value).toBe(46.80); // esperado = archivo
-        expect(sheet.getRow(5).getCell(6).value).toBe(46.57); // encontrado = CPP calculado
+        expect(sheet.getRow(4).getCell(4).value).toBe("Costo Total de Salidas");
+        expect(sheet.getRow(4).getCell(5).value).toBe(46.80); // esperado = archivo
+        expect(sheet.getRow(4).getCell(6).value).toBe(46.57); // encontrado = CPP calculado
     });
 
     it("'Costo Unitario de Saldo Final': una fila por entrada, esperado = archivo (esa fila), encontrado = fórmula re-anclada (esa misma fila)", async () => {
@@ -116,18 +116,20 @@ describe("Rule013Exporter", () => {
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
 
-        expect(sheet.rowCount).toBe(5); // 4 de header + 1 sola entrada con error
-        expect(sheet.getRow(5).getCell(4).value).toBe("Costo Unitario de Saldo Final");
-        expect(sheet.getRow(5).getCell(5).value).toBe(358.2); // esperado = archivo
-        expect(sheet.getRow(5).getCell(6).value).toBe(346.8); // encontrado = fórmula re-anclada
+        expect(sheet.rowCount).toBe(4); // 3 de header + 1 sola entrada con error
+        expect(sheet.getRow(4).getCell(4).value).toBe("Costo Unitario de Saldo Final");
+        expect(sheet.getRow(4).getCell(5).value).toBe(358.2); // esperado = archivo
+        expect(sheet.getRow(4).getCell(6).value).toBe(346.8); // encontrado = fórmula re-anclada
 
-        const trace = String(sheet.getRow(5).getCell(10).value);
-        expect(trace).toContain("Documento: F001-00004970");
-        expect(trace).toContain("Cantidad de esa Entrada: 60");
+        const trace = String(sheet.getRow(4).getCell(10).value);
+        // Formato del modelo RULE_013.xlsx aprobado por el cliente: la
+        // trazabilidad NO lista Documento ni Cantidad de la entrada.
+        expect(trace).not.toContain("Documento:");
+        expect(trace).not.toContain("Cantidad de esa Entrada");
         // El pp (Costo Unitario) también se muestra en la trazabilidad,
         // como contexto adicional -- la columna principal sigue en soles.
-        expect(trace).toContain("Costo Promedio Ponderado Unitario Esperado (Archivo): 5.97");
-        expect(trace).toContain("Costo Promedio Ponderado Unitario Encontrado (CPP recalculado): 5.78");
+        expect(trace).toContain("Costo Promedio Ponderado Unitario Esperado: 5.97");
+        expect(trace).toContain("CPP encontrado: 5.78");
         // Las líneas de Costo Total quedan redundantes con las columnas
         // principales del Excel (esperado/encontrado ya son 358.2/346.8).
         expect(trace).not.toContain("Costo Total del Archivo (esa entrada)");
@@ -153,11 +155,12 @@ describe("Rule013Exporter", () => {
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
 
-        const trace = String(sheet.getRow(5).getCell(10).value);
+        const trace = String(sheet.getRow(4).getCell(10).value);
         expect(trace).not.toContain("undefined");
-        expect(trace).toContain("Documento: F001-00004994");
-        expect(trace).toContain("Cantidad de esa Entrada: 120");
+        expect(trace).toContain("Código Normalizado: 129");
+        expect(trace).toContain("Campos con diferencia: Costo Unitario de Saldo Final");
         expect(trace).not.toContain("Costo Promedio Ponderado Unitario");
+        expect(trace).not.toContain("CPP encontrado");
     });
 
     it("'Costo Total de Saldo Final': esperado = archivo (última fila del mes), encontrado = CPP de la última entrada x cantidad final real", async () => {
@@ -177,11 +180,11 @@ describe("Rule013Exporter", () => {
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
 
-        expect(sheet.getRow(5).getCell(4).value).toBe("Costo Total de Saldo Final");
-        expect(sheet.getRow(5).getCell(5).value).toBe(564.3); // esperado = archivo
-        expect(sheet.getRow(5).getCell(6).value).toBe(563.825); // encontrado = CPP x cantidad final, sin redondeo visual
+        expect(sheet.getRow(4).getCell(4).value).toBe("Costo Total de Saldo Final");
+        expect(sheet.getRow(4).getCell(5).value).toBe(564.3); // esperado = archivo
+        expect(sheet.getRow(4).getCell(6).value).toBe(563.825); // encontrado = CPP x cantidad final, sin redondeo visual
 
-        const trace = String(sheet.getRow(5).getCell(10).value);
+        const trace = String(sheet.getRow(4).getCell(10).value);
         expect(trace).toContain("Saldo Inicial del Costo Total: 73.92");
         expect(trace).toContain("Costo Total por Entrada: 700.8");
         expect(trace).toContain("Costo Total de Salidas Encontrado: 222.42");
@@ -209,10 +212,10 @@ describe("Rule013Exporter", () => {
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
 
-        expect(sheet.rowCount).toBe(7); // 4 de header + 3 de datos
-        expect(sheet.getRow(5).getCell(4).value).toBe("Costo Total de Salidas");
-        expect(sheet.getRow(6).getCell(4).value).toBe("Costo Unitario de Saldo Final");
-        expect(sheet.getRow(7).getCell(4).value).toBe("Costo Total de Saldo Final");
+        expect(sheet.rowCount).toBe(6); // 3 de header + 3 de datos
+        expect(sheet.getRow(4).getCell(4).value).toBe("Costo Total de Salidas");
+        expect(sheet.getRow(5).getCell(4).value).toBe("Costo Unitario de Saldo Final");
+        expect(sheet.getRow(6).getCell(4).value).toBe("Costo Total de Saldo Final");
     });
 
     it("trazabilidad autocontenida por fila: 'Campos con diferencia' SOLO con la diferencia de esa fila puntual, no todas juntas", async () => {
@@ -238,13 +241,13 @@ describe("Rule013Exporter", () => {
         const camposLine = (trace: string) =>
             trace.split("\n").find(line => line.startsWith("Campos con diferencia:"));
 
-        const trace1 = String(sheet.getRow(5).getCell(10).value);
+        const trace1 = String(sheet.getRow(4).getCell(10).value);
         expect(camposLine(trace1)).toBe("Campos con diferencia: Costo Total de Salidas");
 
-        const trace2 = String(sheet.getRow(6).getCell(10).value);
+        const trace2 = String(sheet.getRow(5).getCell(10).value);
         expect(camposLine(trace2)).toBe("Campos con diferencia: Costo Unitario de Saldo Final");
 
-        const trace3 = String(sheet.getRow(7).getCell(10).value);
+        const trace3 = String(sheet.getRow(6).getCell(10).value);
         expect(camposLine(trace3)).toBe("Campos con diferencia: Costo Total de Saldo Final");
     });
 
@@ -267,7 +270,7 @@ describe("Rule013Exporter", () => {
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
 
-        expect(sheet.rowCount).toBe(5); // 4 filas de header + 1 sola fila de datos
-        expect(sheet.getRow(5).getCell(4).value).toBe("Costo Unitario de Saldo Final");
+        expect(sheet.rowCount).toBe(4); // 3 filas de header + 1 sola fila de datos
+        expect(sheet.getRow(4).getCell(4).value).toBe("Costo Unitario de Saldo Final");
     });
 });

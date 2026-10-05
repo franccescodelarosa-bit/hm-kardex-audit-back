@@ -29,7 +29,7 @@ describe("Rule011Exporter", () => {
 
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
-        const trace = String(sheet.getRow(5).getCell(10).value);
+        const trace = String(sheet.getRow(4).getCell(10).value);
 
         expect(trace).toContain("Costo Unitario Final: 5");
         expect(trace).toContain("Costo Unitario Inicial: 0");
@@ -58,7 +58,7 @@ describe("Rule011Exporter", () => {
 
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
-        const trace = String(sheet.getRow(5).getCell(10).value);
+        const trace = String(sheet.getRow(4).getCell(10).value);
 
         expect(trace).toContain("Ocurrencia: 00 Saldo Inicial (Operación 16)");
         expect(trace).not.toContain("Documento:");

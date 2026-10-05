@@ -20,7 +20,7 @@ function baseMetadata(overrides: Partial<any> = {}) {
 }
 
 describe("Rule003Exporter", () => {
-    it("muestra SOLO la fila del campo con diferencia (decisión del equipo): si solo difiere el Costo Total, no aparece la fila de Costo Unitario", async () => {
+    it("aunque solo difiera el Costo Total, muestra las DOS filas (Costo Unitario sin diferencia + Costo Total)", async () => {
         const exporter = new Rule003Exporter();
         const results = [
             {
@@ -39,16 +39,28 @@ describe("Rule003Exporter", () => {
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
 
-        expect(sheet.rowCount).toBe(5); // 4 de header + 1 sola fila
+        expect(sheet.rowCount).toBe(5); // 3 de header + las 2 filas de costo
+
+        expect(sheet.getRow(4).getCell(4).value).toBe("Continuidad de Costo Unitario");
+        expect(sheet.getRow(4).getCell(5).value).toBe(4.04);
+        expect(sheet.getRow(4).getCell(6).value).toBe(4.04);
+        expect(sheet.getRow(4).getCell(7).value).toBe(0);
+        const unitTrace = String(sheet.getRow(4).getCell(10).value);
+        // Primero la información del campo, y al final la aclaración.
+        expect(unitTrace).toContain("Costo Unitario Final: 4.04");
+        expect(unitTrace).toContain("Costo Unitario Inicial: 4.04");
+        expect(unitTrace.split("\n").pop()).toBe("Sin diferencia en Costo Unitario");
+        expect(unitTrace).not.toContain("Campos con diferencia");
+
         expect(sheet.getRow(5).getCell(4).value).toBe("Continuidad de Costo Total");
         expect(sheet.getRow(5).getCell(5).value).toBe(997.88);
         expect(sheet.getRow(5).getCell(6).value).toBe(1014.04);
-        const trace = String(sheet.getRow(5).getCell(10).value);
-        expect(trace).toContain("Campos con diferencia: Costo Total");
-        expect(trace).not.toContain("Costo Unitario");
+        const totalTrace = String(sheet.getRow(5).getCell(10).value);
+        expect(totalTrace).toContain("Campos con diferencia: Costo Total");
+        expect(totalTrace).not.toContain("Costo Unitario");
     });
 
-    it("si solo difiere el Costo Unitario, muestra solo esa fila", async () => {
+    it("aunque solo difiera el Costo Unitario, muestra las DOS filas", async () => {
         const exporter = new Rule003Exporter();
         const workbook = await exporter.export([{
             product_code: "000001",
@@ -63,10 +75,14 @@ describe("Rule003Exporter", () => {
         const sheet = workbook.worksheets[0];
 
         expect(sheet.rowCount).toBe(5);
-        expect(sheet.getRow(5).getCell(4).value).toBe("Continuidad de Costo Unitario");
+        expect(sheet.getRow(4).getCell(4).value).toBe("Continuidad de Costo Unitario");
+        expect(String(sheet.getRow(4).getCell(10).value)).toContain("Campos con diferencia: Costo Unitario");
+        expect(sheet.getRow(5).getCell(4).value).toBe("Continuidad de Costo Total");
+        expect(sheet.getRow(5).getCell(7).value).toBe(0);
+        expect(String(sheet.getRow(5).getCell(10).value)).toContain("Sin diferencia en Costo Total");
     });
 
-    it("registros viejos sin 'differences': muestra solo los campos que realmente difieren", async () => {
+    it("registros viejos sin 'differences': si algún campo realmente difiere, muestra las dos filas", async () => {
         const exporter = new Rule003Exporter();
         const workbook = await exporter.export([{
             product_code: "000001",
@@ -81,7 +97,47 @@ describe("Rule003Exporter", () => {
         const sheet = workbook.worksheets[0];
 
         expect(sheet.rowCount).toBe(5);
+        expect(sheet.getRow(4).getCell(4).value).toBe("Continuidad de Costo Unitario");
         expect(sheet.getRow(5).getCell(4).value).toBe("Continuidad de Costo Total");
+    });
+
+    it("si ningún campo difiere no genera filas (las dos filas aparecen solo cuando hay un hallazgo)", async () => {
+        const exporter = new Rule003Exporter();
+        const workbook = await exporter.export([{
+            product_code: "000001",
+            product_name: "PRODUCTO A",
+            risk_level: "ALTO",
+            metadata: baseMetadata({
+                finalBalance: { quantity: 10, unitCost: 5, totalCost: 50 },
+                initialBalance: { quantity: 10, unitCost: 5, totalCost: 50 },
+                differences: []
+            })
+        }], header);
+
+        expect(workbook.worksheets[0].rowCount).toBe(3);
+    });
+
+    it("sin unidades en ambos saldos el Costo Unitario no se compara, pero su fila se muestra con esa aclaración", async () => {
+        const exporter = new Rule003Exporter();
+        const workbook = await exporter.export([{
+            product_code: "000001",
+            product_name: "PRODUCTO A",
+            risk_level: "ALTO",
+            metadata: baseMetadata({
+                // El Kardex deja el último costo al cerrar en 0 y abre con costo 0
+                finalBalance: { quantity: 0, unitCost: 90.7, totalCost: 5 },
+                initialBalance: { quantity: 0, unitCost: 0, totalCost: 0 },
+                differences: ["Costo Total"]
+            })
+        }], header);
+        const sheet = workbook.worksheets[0];
+
+        expect(sheet.rowCount).toBe(5);
+        expect(sheet.getRow(4).getCell(4).value).toBe("Continuidad de Costo Unitario");
+        const unitTrace = String(sheet.getRow(4).getCell(10).value);
+        expect(unitTrace).toContain("sin unidades en ambos saldos");
+        expect(unitTrace).not.toContain("Campos con diferencia");
+        expect(String(sheet.getRow(5).getCell(10).value)).toContain("Campos con diferencia: Costo Total");
     });
 
     it("si las dos difieren, muestra las 2 filas, cada trazabilidad habla SOLO de su propio campo (sin mezclar)", async () => {
@@ -98,13 +154,13 @@ describe("Rule003Exporter", () => {
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
 
-        expect(sheet.rowCount).toBe(6);
+        expect(sheet.rowCount).toBe(5);
 
-        const unitRowTrace = String(sheet.getRow(5).getCell(10).value);
+        const unitRowTrace = String(sheet.getRow(4).getCell(10).value);
         expect(unitRowTrace).toContain("Campos con diferencia: Costo Unitario");
         expect(unitRowTrace).not.toContain("Costo Total");
 
-        const totalRowTrace = String(sheet.getRow(6).getCell(10).value);
+        const totalRowTrace = String(sheet.getRow(5).getCell(10).value);
         expect(totalRowTrace).toContain("Campos con diferencia: Costo Total");
         expect(totalRowTrace).not.toContain("Costo Unitario");
     });
@@ -129,11 +185,11 @@ describe("Rule003Exporter", () => {
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
 
-        expect(sheet.rowCount).toBe(5); // 4 de header + 1 sola fila
-        expect(sheet.getRow(5).getCell(5).value).toBe(250);
-        expect(sheet.getRow(5).getCell(6).value).toBe("Producto no encontrado");
-        expect(sheet.getRow(5).getCell(7).value).toBe("No aplicable");
-        const trace = String(sheet.getRow(5).getCell(10).value);
+        expect(sheet.rowCount).toBe(4); // 3 de header + 1 sola fila
+        expect(sheet.getRow(4).getCell(5).value).toBe(250);
+        expect(sheet.getRow(4).getCell(6).value).toBe("Producto no encontrado");
+        expect(sheet.getRow(4).getCell(7).value).toBe("No aplicable");
+        const trace = String(sheet.getRow(4).getCell(10).value);
         expect(trace).not.toContain("null");
         expect(trace).toContain("no tiene Kardex registrado");
     });
@@ -153,10 +209,10 @@ describe("Rule003Exporter", () => {
         }], header);
         const sheet = workbook.worksheets[0];
 
-        expect(sheet.getRow(5).getCell(4).value).toBe("Producto no encontrado en el mes siguiente");
-        expect(sheet.getRow(5).getCell(5).value).toBe(0);
-        expect(sheet.getRow(5).getCell(6).value).toBe("Producto no encontrado");
-        expect(sheet.getRow(5).getCell(7).value).toBe("No aplicable");
+        expect(sheet.getRow(4).getCell(4).value).toBe("Producto no encontrado en el mes siguiente");
+        expect(sheet.getRow(4).getCell(5).value).toBe(0);
+        expect(sheet.getRow(4).getCell(6).value).toBe("Producto no encontrado");
+        expect(sheet.getRow(4).getCell(7).value).toBe("No aplicable");
     });
 
     it("INITIAL_BALANCE_NOT_FOUND_NEXT_MONTH: 'Sin Saldo Inicial en el mes siguiente', encontrado dice que falta la op 16", async () => {
@@ -175,18 +231,18 @@ describe("Rule003Exporter", () => {
         }], header);
         const sheet = workbook.worksheets[0];
 
-        expect(sheet.rowCount).toBe(5);
-        expect(sheet.getRow(5).getCell(1).value).toBe("Marzo → Abril");
-        expect(sheet.getRow(5).getCell(4).value).toBe("Sin Saldo Inicial en el mes siguiente");
-        expect(sheet.getRow(5).getCell(5).value).toBe(50);
-        expect(sheet.getRow(5).getCell(6).value).toBe("Sin Saldo Inicial (TipoOp 16)");
-        expect(sheet.getRow(5).getCell(7).value).toBe("No aplicable");
-        const trace = String(sheet.getRow(5).getCell(10).value);
+        expect(sheet.rowCount).toBe(4);
+        expect(sheet.getRow(4).getCell(1).value).toBe("Marzo → Abril");
+        expect(sheet.getRow(4).getCell(4).value).toBe("Sin Saldo Inicial en el mes siguiente");
+        expect(sheet.getRow(4).getCell(5).value).toBe(50);
+        expect(sheet.getRow(4).getCell(6).value).toBe("Sin Saldo Inicial (TipoOp 16)");
+        expect(sheet.getRow(4).getCell(7).value).toBe("No aplicable");
+        const trace = String(sheet.getRow(4).getCell(10).value);
         expect(trace).toContain("no tiene Saldo Inicial (TipoOp 16) en Abril");
         expect(trace).not.toContain("null");
     });
 
-    it("PRODUCT_NOT_FOUND_NEXT_MONTH con missingFields: una fila por campo distinto de 0, esperado = valor de ese campo", async () => {
+    it("PRODUCT_NOT_FOUND_NEXT_MONTH con missingFields: Cantidad solo si es distinta de 0, y SIEMPRE las dos filas de costo", async () => {
         const exporter = new Rule003Exporter();
         const workbook = await exporter.export([{
             error_type: "PRODUCT_NOT_FOUND_NEXT_MONTH",
@@ -203,15 +259,48 @@ describe("Rule003Exporter", () => {
         }], header);
         const sheet = workbook.worksheets[0];
 
-        expect(sheet.rowCount).toBe(6); // 4 de header + 2 campos
-        expect(sheet.getRow(5).getCell(4).value).toBe("Cantidad - Producto no encontrado en el mes siguiente");
-        expect(sheet.getRow(5).getCell(5).value).toBe(10);
-        expect(sheet.getRow(5).getCell(6).value).toBe("Producto no encontrado");
+        expect(sheet.rowCount).toBe(6); // 3 de header + Cantidad + Costo Unitario + Costo Total
+        expect(sheet.getRow(4).getCell(4).value).toBe("Cantidad - Producto no encontrado en el mes siguiente");
+        expect(sheet.getRow(4).getCell(5).value).toBe(10);
+        expect(sheet.getRow(4).getCell(6).value).toBe("Producto no encontrado");
+        expect(sheet.getRow(5).getCell(4).value).toBe("Costo Unitario - Producto no encontrado en el mes siguiente");
+        expect(sheet.getRow(5).getCell(5).value).toBe(0);
         expect(sheet.getRow(6).getCell(4).value).toBe("Costo Total - Producto no encontrado en el mes siguiente");
         expect(sheet.getRow(6).getCell(5).value).toBe(50);
     });
 
-    it("INITIAL_BALANCE_NOT_FOUND_NEXT_MONTH con missingFields: una fila por campo distinto de 0", async () => {
+    it("caso real 46045: cierra con cantidad 0 y solo el Costo Unitario distinto de 0 -> muestra Costo Unitario y Costo Total (sin fila de Cantidad)", async () => {
+        const exporter = new Rule003Exporter();
+        const workbook = await exporter.export([{
+            error_type: "PRODUCT_NOT_FOUND_NEXT_MONTH",
+            product_code: "46045",
+            product_name: "PANTALON FILIPPO ALPI PIMA COMFORT BOCELLI SILVER 36",
+            risk_level: "ALTO",
+            metadata: {
+                fromIndex: 1,
+                toIndex: 2,
+                finalBalance: { quantity: 0, unitCost: 90.7, totalCost: 0 },
+                initialBalance: null,
+                missingFields: ["Costo Unitario"]
+            }
+        }], header);
+        const sheet = workbook.worksheets[0];
+
+        expect(sheet.rowCount).toBe(5);
+        expect(sheet.getRow(4).getCell(1).value).toBe("Enero → Febrero");
+        expect(sheet.getRow(4).getCell(4).value).toBe("Costo Unitario - Producto no encontrado en el mes siguiente");
+        expect(sheet.getRow(4).getCell(5).value).toBe(90.7);
+        expect(sheet.getRow(5).getCell(4).value).toBe("Costo Total - Producto no encontrado en el mes siguiente");
+        expect(sheet.getRow(5).getCell(5).value).toBe(0);
+
+        // La fila que es hallazgo no lleva la aclaración; la que no lo es, la lleva al final.
+        expect(String(sheet.getRow(4).getCell(10).value)).not.toContain("Sin diferencia");
+        const totalTrace = String(sheet.getRow(5).getCell(10).value);
+        expect(totalTrace).toContain("no se puede validar la continuidad");
+        expect(totalTrace.split("\n").pop()).toBe("Sin diferencia en Costo Total");
+    });
+
+    it("INITIAL_BALANCE_NOT_FOUND_NEXT_MONTH con missingFields: también las dos filas de costo", async () => {
         const exporter = new Rule003Exporter();
         const workbook = await exporter.export([{
             error_type: "INITIAL_BALANCE_NOT_FOUND_NEXT_MONTH",
@@ -229,9 +318,34 @@ describe("Rule003Exporter", () => {
         const sheet = workbook.worksheets[0];
 
         expect(sheet.rowCount).toBe(5);
-        expect(sheet.getRow(5).getCell(4).value).toBe("Costo Unitario - Sin Saldo Inicial en el mes siguiente");
-        expect(sheet.getRow(5).getCell(5).value).toBe(142.06);
-        expect(sheet.getRow(5).getCell(6).value).toBe("Sin Saldo Inicial (TipoOp 16)");
+        expect(sheet.getRow(4).getCell(4).value).toBe("Costo Unitario - Sin Saldo Inicial en el mes siguiente");
+        expect(sheet.getRow(4).getCell(5).value).toBe(142.06);
+        expect(sheet.getRow(4).getCell(6).value).toBe("Sin Saldo Inicial (TipoOp 16)");
+        expect(sheet.getRow(5).getCell(4).value).toBe("Costo Total - Sin Saldo Inicial en el mes siguiente");
+        expect(sheet.getRow(5).getCell(5).value).toBe(0);
+    });
+
+    it("missingFields solo con Cantidad: Cantidad + las dos filas de costo", async () => {
+        const exporter = new Rule003Exporter();
+        const workbook = await exporter.export([{
+            error_type: "PRODUCT_NOT_FOUND_NEXT_MONTH",
+            product_code: "000001",
+            product_name: "PRODUCTO A",
+            risk_level: "ALTO",
+            metadata: {
+                fromIndex: 1,
+                toIndex: 2,
+                finalBalance: { quantity: 3, unitCost: 0, totalCost: 0 },
+                initialBalance: null,
+                missingFields: ["Cantidad"]
+            }
+        }], header);
+        const sheet = workbook.worksheets[0];
+
+        expect(sheet.rowCount).toBe(6);
+        expect(sheet.getRow(4).getCell(4).value).toBe("Cantidad - Producto no encontrado en el mes siguiente");
+        expect(sheet.getRow(5).getCell(4).value).toBe("Costo Unitario - Producto no encontrado en el mes siguiente");
+        expect(sheet.getRow(6).getCell(4).value).toBe("Costo Total - Producto no encontrado en el mes siguiente");
     });
 });
 

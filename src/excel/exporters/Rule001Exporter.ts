@@ -62,32 +62,13 @@ export class Rule001Exporter extends BaseExcelExporter {
             findings
         );
 
-        worksheet.views = [
-            {
-                state: "frozen",
-                ySplit: 4
-            }
-        ];
-
-        worksheet.autoFilter = {
-            from: "A4",
-            to: "J4"
-        };
 
         return workbook;
     }
 
-    protected writeTableHeader(worksheet: ExcelJS.Worksheet) {
-
-        super.writeTableHeader(worksheet);
-
-        const headerRow = worksheet.getRow(4);
-        headerRow.getCell(5).value = "Valor esperado del inventario final";
-        headerRow.getCell(6).value = "Valor encontrado del Kardex";
-
-        worksheet.getColumn(5).width = 30;
-        worksheet.getColumn(6).width = 30;
-    }
+    // El segundo renglón de encabezado ("Valor esperado del inventario
+    // final" / "Valor encontrado del Kardex") lo arma la base a partir del
+    // estilo de RULE_001 (ver ReportStyle.ts).
 
     private expand(
         results: any[],

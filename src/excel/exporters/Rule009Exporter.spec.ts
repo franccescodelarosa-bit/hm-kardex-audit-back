@@ -32,7 +32,7 @@ describe("Rule009Exporter", () => {
 
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
-        const row = sheet.getRow(5);
+        const row = sheet.getRow(4);
 
         expect(row.getCell(5).value).toBe(0);   // Valor Esperado
         expect(row.getCell(6).value).toBe(3);   // Valor Encontrado = CANTIDAD (3), NO el costo (32.25)

@@ -38,7 +38,7 @@ describe("Rule012Exporter", () => {
 
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
-        const row = sheet.getRow(5);
+        const row = sheet.getRow(4);
 
         expect(row.getCell(2).value).toBe("Fac-F001-503371"); // Codigo del producto -- NO "2023-12-13"
         expect(String(row.getCell(10).value)).not.toContain("undefined");

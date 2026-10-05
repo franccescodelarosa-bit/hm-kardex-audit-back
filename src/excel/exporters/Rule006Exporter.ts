@@ -40,16 +40,6 @@ export class Rule006Exporter extends BaseExcelExporter {
             worksheet,
             findings
         );
-        worksheet.views = [
-            {
-                state: "frozen",
-                ySplit: 4
-            }
-        ];
-        worksheet.autoFilter = {
-            from: "A4",
-            to: "J4"
-        };
         return workbook;
     }
 

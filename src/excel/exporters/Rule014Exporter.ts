@@ -65,16 +65,6 @@ export class Rule014Exporter extends BaseExcelExporter {
             worksheet,
             findings
         );
-        worksheet.views = [
-            {
-                state: "frozen",
-                ySplit: 4
-            }
-        ];
-        worksheet.autoFilter = {
-            from: "A4",
-            to: "J4"
-        };
         return workbook;
     }
 
@@ -128,7 +118,7 @@ export class Rule014Exporter extends BaseExcelExporter {
     ): CellRichTextValue {
         const text = (value: string, color: string, underline = false): RichText => ({
             text: value,
-            font: { bold: true, underline, color: { argb: color } }
+            font: { name: "Calibri", size: 12, bold: true, underline, color: { argb: color } }
         });
         const green = (value: string, underline = false) => text(value, GREEN, underline);
         const blue = (value: string, underline = false) => text(value, BLUE, underline);
