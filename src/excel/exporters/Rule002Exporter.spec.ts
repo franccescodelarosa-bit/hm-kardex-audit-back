@@ -28,7 +28,7 @@ describe("Rule002Exporter", () => {
 
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
-        const traceability = String(sheet.getRow(5).getCell(10).value);
+        const traceability = String(sheet.getRow(4).getCell(10).value);
 
         // Ya no debe decir solo "Campos con diferencia: Cantidad" sin numeros
         expect(traceability).not.toBe("Mes Cierre: Enero\nMes Inicial: Febrero\nCampos con diferencia: Cantidad");
@@ -59,8 +59,8 @@ describe("Rule002Exporter", () => {
 
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
-        const traceability = String(sheet.getRow(5).getCell(10).value);
-        const foundValue = sheet.getRow(5).getCell(6).value;
+        const traceability = String(sheet.getRow(4).getCell(10).value);
+        const foundValue = sheet.getRow(4).getCell(6).value;
 
         expect(traceability).not.toContain("null");
         expect(traceability).toContain("no tiene Kardex registrado");

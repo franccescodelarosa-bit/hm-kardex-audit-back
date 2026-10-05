@@ -33,19 +33,19 @@ describe("Rule005Exporter", () => {
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
 
-        expect(sheet.rowCount).toBe(6); // 4 de header + 2 filas de datos
+        expect(sheet.rowCount).toBe(5); // 3 de header + 2 filas de datos
 
         // Fila 1: Costo Unitario de Saldo -- "Valor encontrado" YA NO debe salir vacío
-        expect(sheet.getRow(5).getCell(4).value).toBe("Costo Unitario de Saldo");
-        expect(sheet.getRow(5).getCell(6).value).toBe(-4.06);
-        const trace1 = String(sheet.getRow(5).getCell(10).value);
+        expect(sheet.getRow(4).getCell(4).value).toBe("Costo Unitario de Saldo");
+        expect(sheet.getRow(4).getCell(6).value).toBe(-4.06);
+        const trace1 = String(sheet.getRow(4).getCell(10).value);
         expect(trace1).toContain("Campos Negativos: Costo Unitario de Saldo");
         expect(trace1).not.toContain("Costo Total de Saldo");
 
         // Fila 2: Costo Total de Saldo -- su propio valor, su propia trazabilidad
-        expect(sheet.getRow(6).getCell(4).value).toBe("Costo Total de Saldo");
-        expect(sheet.getRow(6).getCell(6).value).toBe(-40.6);
-        const trace2 = String(sheet.getRow(6).getCell(10).value);
+        expect(sheet.getRow(5).getCell(4).value).toBe("Costo Total de Saldo");
+        expect(sheet.getRow(5).getCell(6).value).toBe(-40.6);
+        const trace2 = String(sheet.getRow(5).getCell(10).value);
         expect(trace2).toContain("Campos Negativos: Costo Total de Saldo");
         expect(trace2).not.toContain("Costo Unitario de Saldo");
     });
@@ -72,7 +72,7 @@ describe("Rule005Exporter", () => {
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
 
-        expect(sheet.rowCount).toBe(5);
-        expect(sheet.getRow(5).getCell(6).value).toBe(-15); // "Valor encontrado" resuelto igual
+        expect(sheet.rowCount).toBe(4);
+        expect(sheet.getRow(4).getCell(6).value).toBe(-15); // "Valor encontrado" resuelto igual
     });
 });

@@ -19,6 +19,8 @@ export interface Rule003Metadata {
         totalCost: number;
     } | null;
     differences?: string[];
+    // campos del cierre distintos de 0 cuando el producto no pasa al mes siguiente
+    missingFields?: string[];
 }
 export class Rule003Exporter extends BaseExcelExporter {
     async export(
@@ -41,17 +43,11 @@ export class Rule003Exporter extends BaseExcelExporter {
             worksheet,
             findings
         );
-        worksheet.views = [
-            {
-                state: "frozen",
-                ySplit: 4
-            }
-        ];
-        worksheet.autoFilter = {
-            from: "A4",
-            to: "J4"
-        };
         return workbook;
+    }
+
+    private static equals(a: number, b: number): boolean {
+        return Math.abs(a - b) < 0.01;
     }
 
     private buildFindings(results: any[]): AuditFindingRow[] {
@@ -61,98 +57,134 @@ export class Rule003Exporter extends BaseExcelExporter {
             const mesCierre = DateUtils.monthName(metadata.fromIndex);
             const mesInicio = DateUtils.monthName(metadata.toIndex);
 
+            if (result.error_type === "INITIAL_BALANCE_NOT_FOUND_NEXT_MONTH") {
+                rows.push(...this.missingRows(
+                    result,
+                    metadata,
+                    "Sin Saldo Inicial en el mes siguiente",
+                    "Sin Saldo Inicial (TipoOp 16)",
+                    `El producto existe en ${mesInicio}, pero no tiene Saldo Inicial (TipoOp 16) en ${mesInicio} — no se puede validar la continuidad.`
+                ));
+                continue;
+            }
+
             if (!metadata.initialBalance) {
-                rows.push({
-                    period: `${mesCierre} → ${mesInicio}`,
-                    productCode: result.product_code,
-                    productDescription: result.product_name,
-                    inconsistencyType: "Producto no encontrado en el mes siguiente",
-                    expectedValue: metadata.finalBalance?.totalCost ?? 0,
-                    foundValue: 0,
-                    difference: metadata.finalBalance?.totalCost ?? 0,
-                    differencePercent: 0,
-                    riskLevel: result.risk_level,
-                    traceability: [
-                        `Mes de Cierre: ${mesCierre}`,
-                        `Costo Total Final (${mesCierre}): ${metadata.finalBalance?.totalCost ?? 0}`,
-                        `Mes Siguiente: ${mesInicio}`,
-                        `El producto no tiene Kardex registrado en ${mesInicio} — no se puede validar la continuidad.`
-                    ].join("\n")
-                });
+                rows.push(...this.missingRows(
+                    result,
+                    metadata,
+                    "Producto no encontrado en el mes siguiente",
+                    "Producto no encontrado",
+                    `El producto no tiene Kardex registrado en ${mesInicio} — no se puede validar la continuidad.`
+                ));
                 continue;
             }
 
             const finalBalance = metadata.finalBalance!;
             const initialBalance = metadata.initialBalance;
 
-            rows.push({
-                period: `${mesCierre} → ${mesInicio}`,
-                productCode: result.product_code,
-                productDescription: result.product_name,
-                inconsistencyType: "Continuidad de Costo Unitario",
-                expectedValue: finalBalance.unitCost,
-                foundValue: initialBalance.unitCost,
-                difference:
-                    finalBalance.unitCost -
-                    initialBalance.unitCost,
-                differencePercent:
-                    finalBalance.unitCost === 0
-                        ? 0
-                        : Math.abs(
-                            (
-                                finalBalance.unitCost -
-                                initialBalance.unitCost
-                            ) /
-                            finalBalance.unitCost
-                        ) * 100,
-                riskLevel: result.risk_level,
-                traceability: [
-                    `Mes Cierre: ${mesCierre}`,
-                    `Mes Inicio: ${mesInicio}`,
-                    `Costo Unitario Final: ${finalBalance.unitCost}`,
-                    `Costo Unitario Inicial: ${initialBalance.unitCost}`,
-                    this.fieldLegend(metadata, "Costo Unitario")
-                ].join("\n")
-            });
 
-            // COSTO TOTAL -- también siempre visible, misma decisión que arriba.
-            rows.push({
-                period: `${mesCierre} → ${mesInicio}`,
-                productCode: result.product_code,
-                productDescription: result.product_name,
-                inconsistencyType: "Continuidad de Costo Total",
-                expectedValue: finalBalance.totalCost,
-                foundValue: initialBalance.totalCost,
-                difference:
-                    finalBalance.totalCost -
-                    initialBalance.totalCost,
-                differencePercent:
-                    finalBalance.totalCost === 0
-                        ? 0
-                        : Math.abs(
-                            (
-                                finalBalance.totalCost -
-                                initialBalance.totalCost
-                            ) /
-                            finalBalance.totalCost
-                        ) * 100,
-                riskLevel: result.risk_level,
-                traceability: [
-                    `Mes Cierre: ${mesCierre}`,
-                    `Mes Inicio: ${mesInicio}`,
-                    `Costo Total Final: ${finalBalance.totalCost}`,
-                    `Costo Total Inicial: ${initialBalance.totalCost}`,
-                    this.fieldLegend(metadata, "Costo Total")
-                ].join("\n")
-            });
+            const fields: { name: string; expected: number; found: number }[] = [
+                { name: "Costo Unitario", expected: finalBalance.unitCost, found: initialBalance.unitCost },
+                { name: "Costo Total", expected: finalBalance.totalCost, found: initialBalance.totalCost }
+            ];
+
+            const failing = fields.filter(field =>
+                metadata.differences
+                    ? metadata.differences.includes(field.name)
+                    : !Rule003Exporter.equals(field.expected, field.found)
+            );
+
+            // Si ninguno de los dos costos falla, no hay hallazgo.
+            if (failing.length === 0) {
+                continue;
+            }
+
+            for (const field of fields) {
+                rows.push({
+                    period: `${mesCierre} → ${mesInicio}`,
+                    productCode: result.product_code,
+                    productDescription: result.product_name,
+                    inconsistencyType: `Continuidad de ${field.name}`,
+                    expectedValue: field.expected,
+                    foundValue: field.found,
+                    difference: field.expected - field.found,
+                    differencePercent:
+                        field.expected === 0
+                            ? 0
+                            : Math.abs((field.expected - field.found) / field.expected) * 100,
+                    riskLevel: result.risk_level,
+                    traceability: [
+                        `Mes Cierre: ${mesCierre}`,
+                        `Mes Inicio: ${mesInicio}`,
+                        `${field.name} Final: ${field.expected}`,
+                        `${field.name} Inicial: ${field.found}`,
+                        Rule003Exporter.differenceNote(field, failing.includes(field))
+                    ].join("\n")
+                });
+            }
         }
         return rows;
     }
 
-    private fieldLegend(metadata: Rule003Metadata, field: string): string {
-        if (!metadata.differences || metadata.differences.includes(field)) {
-            return `Campos con diferencia: ${field}`;
+    private static differenceNote(
+        field: { name: string; expected: number; found: number },
+        failed: boolean
+    ): string {
+        if (failed) {
+            return `Campos con diferencia: ${field.name}`;
         }
-        return `Sin diferencia en ${field}`;
+        if (!Rule003Exporter.equals(field.expected, field.found)) {
+            return `No se compara ${field.name}: sin unidades en ambos saldos`;
+        }
+        return `Sin diferencia en ${field.name}`;
+    }
+
+    /*
+     * Producto que no pasa al mes siguiente (no aparece o no tiene op 16):
+     * la Cantidad solo si el cierre la trae distinta de 0 (decisión de la
+     * usuaria), y SIEMPRE las dos filas de costo (pedido del cliente: aunque
+     * solo uno falle se muestran ambos). Registros viejos sin
+     * `missingFields`: una sola fila con el Costo Total, como antes.
+     */
+    private missingRows(
+        result: any,
+        metadata: Rule003Metadata,
+        label: string,
+        foundValue: string,
+        explanation: string
+    ): AuditFindingRow[] {
+        const mesCierre = DateUtils.monthName(metadata.fromIndex);
+        const mesInicio = DateUtils.monthName(metadata.toIndex);
+        const valuesByField: Record<string, number> = {
+            "Cantidad": metadata.finalBalance?.quantity ?? 0,
+            "Costo Unitario": metadata.finalBalance?.unitCost ?? 0,
+            "Costo Total": metadata.finalBalance?.totalCost ?? 0
+        };
+        const missing = metadata.missingFields ?? [];
+        const fields: (string | null)[] = missing.length
+            ? ["Cantidad", "Costo Unitario", "Costo Total"].filter(
+                field => field !== "Cantidad" || missing.includes("Cantidad")
+            )
+            : [null];
+
+        return fields.map(field => ({
+            period: `${mesCierre} → ${mesInicio}`,
+            productCode: result.product_code,
+            productDescription: result.product_name,
+            inconsistencyType: field ? `${field} - ${label}` : label,
+            expectedValue: field ? valuesByField[field] : valuesByField["Costo Total"],
+            foundValue,
+            difference: "No aplicable",
+            riskLevel: result.risk_level,
+            traceability: [
+                `Mes de Cierre: ${mesCierre}`,
+                `Cantidad Final (${mesCierre}): ${valuesByField["Cantidad"]}`,
+                `Costo Unitario Final (${mesCierre}): ${valuesByField["Costo Unitario"]}`,
+                `Costo Total Final (${mesCierre}): ${valuesByField["Costo Total"]}`,
+                `Mes Siguiente: ${mesInicio}`,
+                explanation,
+                ...(field && !missing.includes(field) ? [`Sin diferencia en ${field}`] : [])
+            ].join("\n")
+        }));
     }
 }

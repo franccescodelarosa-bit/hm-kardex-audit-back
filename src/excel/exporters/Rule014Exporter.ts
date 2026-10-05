@@ -1,4 +1,4 @@
-import ExcelJS from "exceljs";
+import ExcelJS, { CellRichTextValue, RichText } from "exceljs";
 
 import { BaseExcelExporter } from "./base/BaseExcelExporter";
 import { ReportHeader } from "./base/ReportHeader";
@@ -65,16 +65,6 @@ export class Rule014Exporter extends BaseExcelExporter {
             worksheet,
             findings
         );
-        worksheet.views = [
-            {
-                state: "frozen",
-                ySplit: 4
-            }
-        ];
-        worksheet.autoFilter = {
-            from: "A4",
-            to: "J4"
-        };
         return workbook;
     }
 
@@ -111,21 +101,82 @@ export class Rule014Exporter extends BaseExcelExporter {
                         diferencia
                     ),
                     riskLevel: result.risk_level,
-                    traceability: [
-                        "Mensaje del sistema (Anexo 03): ERROR DE CONSOLIDACIÓN DEL KARDEX Y LA DIFERENCIA",
-                        `Punto de partida - Saldo Inicial consolidado del mes: ${metadata.initialBalance.totalCost}`,
-                        `+ Total Entradas (Compras, Op. 02): ${metadata.totals.entry.totalCost}`,
-                        `− Total Salidas (Ventas, Op. 01): ${metadata.totals.exit.totalCost}`,
-                        `= Resultado de la fórmula (Encontrado): ${metadata.expectedFinalBalance.totalCost}`,
-                        `Cierre real que trae el Kardex (Esperado): ${metadata.actualFinalBalance.totalCost}`,
-                        `Diferencia: ${diferencia}`,
-                        `Tolerancia: Sin tolerancia (debe coincidir exacto)`,
-                        `Productos consolidados: ${metadata.productCount}`,
-                        `Movimientos consolidados: ${metadata.movementCount}`
-                    ].join("\n")
+                    traceability: Rule014Exporter.buildTraceability(metadata, diferencia)
                 });
             }
         }
         return rows;
     }
+
+    /*
+     * Trazabilidad con el formato pedido por el cliente: verde = valor
+     * esperado, azul = valor encontrado, rojo = operadores de la fórmula.
+     */
+    private static buildTraceability(
+        metadata: Rule014Metadata,
+        diferencia: number
+    ): CellRichTextValue {
+        const text = (value: string, color: string, underline = false): RichText => ({
+            text: value,
+            font: { name: "Calibri", size: 12, bold: true, underline, color: { argb: color } }
+        });
+        const green = (value: string, underline = false) => text(value, GREEN, underline);
+        const blue = (value: string, underline = false) => text(value, BLUE, underline);
+        const lightBlue = (value: string) => text(value, LIGHT_BLUE);
+        const red = (value: string) => text(value, RED);
+        const black = (value: string) => text(value, BLACK);
+        const money = Rule014Exporter.formatMoney;
+
+        return {
+            richText: [
+                green("VALOR ESPERADO = SUMATORIA DE LOS SALDOS FINALES DE CADA ITEM DEL MES SEGUN EL KARDEX : "),
+                green(money(metadata.actualFinalBalance.totalCost), true),
+                blue("\nVALOR ENCONTRADO = SUMATORIA DE LOS SALDOS INICIALES DE CADA ITEM DEL MES"),
+                red(" + "),
+                blue("TOTAL ENTRADAS (Todos los ingresos)"),
+                red(" - "),
+                blue("TOTAL SALIDAS (todos los egresos)"),
+                red("\n= "),
+                blue("RESULTADO DE LA FORMULA (VALOR ENCONTRADO):\n"),
+                blue(money(metadata.initialBalance.totalCost)),
+                red(" + "),
+                lightBlue(money(metadata.totals.entry.totalCost)),
+                red(" - "),
+                blue(money(metadata.totals.exit.totalCost)),
+                red("\n= "),
+                blue(money(metadata.expectedFinalBalance.totalCost), true),
+                black("\n\nDiferencia = "),
+                green(money(metadata.actualFinalBalance.totalCost)),
+                red(" - "),
+                lightBlue(money(metadata.expectedFinalBalance.totalCost)),
+                lightBlue(" = "),
+                black(money(diferencia)),
+                black(
+                    "\nTolerancia: Sin tolerancia (debe coincidir exacto)" +
+                    `\nProductos consolidados: ${Rule014Exporter.formatNumber(metadata.productCount)}` +
+                    `\nMovimientos consolidados: ${Rule014Exporter.formatNumber(metadata.movementCount)}`
+                )
+            ]
+        };
+    }
+
+    private static formatMoney(value: number): string {
+        return `S/ ${Rule014Exporter.formatNumber(value)}`;
+    }
+
+    private static formatNumber(value: number): string {
+        const [integerPart, decimals] = Math.abs(value).toFixed(2).split(".");
+        const groups = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, " ").split(" ");
+        const thousands = groups.pop()!;
+        const integer = groups.length > 0
+            ? `${groups.join("´")},${thousands}`
+            : thousands;
+        return `${value < 0 ? "-" : ""}${integer}.${decimals}`;
+    }
 }
+
+const GREEN = "FF00B050";
+const BLUE = "FF0070C0";
+const LIGHT_BLUE = "FF00B0F0";
+const RED = "FFFF0000";
+const BLACK = "FF000000";

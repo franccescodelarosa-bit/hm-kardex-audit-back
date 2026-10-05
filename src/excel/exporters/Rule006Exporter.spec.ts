@@ -36,7 +36,7 @@ describe("Rule006Exporter", () => {
 
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
-        const periodo = sheet.getRow(5).getCell(1).value;
+        const periodo = sheet.getRow(4).getCell(1).value;
 
         expect(periodo).toBe("Enero");
     });
@@ -58,7 +58,7 @@ describe("Rule006Exporter", () => {
 
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
-        const periodo = sheet.getRow(5).getCell(1).value;
+        const periodo = sheet.getRow(4).getCell(1).value;
 
         expect(periodo).toBe("-");
     });
@@ -84,7 +84,7 @@ describe("Rule006Exporter", () => {
 
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
-        const traceability = String(sheet.getRow(5).getCell(10).value);
+        const traceability = String(sheet.getRow(4).getCell(10).value);
 
         expect(traceability).toContain("Ocurrencia 1: 2024-01-01, Doc. 00 Saldo Inicial, 1 movimiento(s)");
         expect(traceability).toContain("Ocurrencia 2: 2024-01-01, Doc. 00 Saldo Inicial, 2 movimiento(s)");
@@ -108,7 +108,7 @@ describe("Rule006Exporter", () => {
 
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
-        const traceability = String(sheet.getRow(5).getCell(10).value);
+        const traceability = String(sheet.getRow(4).getCell(10).value);
 
         expect(traceability).toContain("Filas: 10, 25");
     });

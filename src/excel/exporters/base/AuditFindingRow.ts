@@ -1,3 +1,5 @@
+import { CellRichTextValue } from "exceljs";
+
 export interface AuditFindingRow {
 
     period: string;
@@ -18,6 +20,6 @@ export interface AuditFindingRow {
 
     riskLevel: string;
 
-    traceability: string;
+    traceability: string | CellRichTextValue;
 
 }

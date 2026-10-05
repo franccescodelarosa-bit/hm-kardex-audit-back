@@ -269,4 +269,75 @@ describe("Rule001Exporter", () => {
         expect(String(sheet.getRow(5).getCell(10).value)).toContain("Costo Unitario Kardex: 0");
         expect(sheet.getRow(7).getCell(4).value).toBeFalsy();
     });
+
+    it("PRODUCT_NOT_FOUND muestra el período 'Enero', no 'Sin período' (incluye registros viejos con month 0)", async () => {
+        const exporter = new Rule001Exporter();
+        const workbook = await exporter.export([{
+            error_type: "PRODUCT_NOT_FOUND",
+            month: 0,
+            product_code: "000999",
+            product_name: "PRODUCTO SIN KARDEX",
+            risk_level: "CRITICO",
+            description: "El producto no existe en el Kardex.",
+            recommendation: "Verifique que el producto exista en ambos archivos.",
+            metadata: { month: 0, inventoryStock: 5, missingFields: ["Cantidad"] }
+        }], header);
+        const sheet = workbook.worksheets[0];
+
+        expect(sheet.getRow(5).getCell(1).value).toBe("Enero");
+    });
+
+    it("WITHOUT_MOVEMENTS muestra el período 'Enero', no 'Sin período'", async () => {
+        const exporter = new Rule001Exporter();
+        const workbook = await exporter.export([{
+            error_type: "WITHOUT_MOVEMENTS",
+            product_code: "000999",
+            product_name: "PRODUCTO",
+            risk_level: "ALTO",
+            description: "El producto no posee movimientos en el Kardex.",
+            recommendation: "Revise el Kardex del producto.",
+            metadata: { month: 0 }
+        }], header);
+        const sheet = workbook.worksheets[0];
+
+        expect(sheet.getRow(5).getCell(1).value).toBe("Enero");
+    });
+
+    it("INITIAL_BALANCE_NOT_FOUND genera una fila por campo: esperado = inventario, encontrado = 'Sin Saldo Inicial'", async () => {
+        const exporter = new Rule001Exporter();
+        const workbook = await exporter.export([{
+            error_type: "INITIAL_BALANCE_NOT_FOUND",
+            month: 1,
+            product_code: "000001",
+            product_name: "TUERCA 1/2",
+            risk_level: "CRITICO",
+            description: "El producto existe en el Kardex de enero pero no tiene Saldo Inicial (TipoOp 16).",
+            recommendation: "Registre el Saldo Inicial (TipoOp 16) en el Kardex de enero con los valores del inventario final.",
+            metadata: {
+                month: 1,
+                inventoryCode: "000001",
+                normalizedCode: "1",
+                inventoryStock: 50,
+                inventoryUnitCost: 1,
+                inventoryTotalCost: 50,
+                kardexMovements: 3,
+                missingFields: ["Cantidad", "Costo Unitario", "Costo Total"]
+            }
+        }], header);
+        const sheet = workbook.worksheets[0];
+
+        expect(sheet.getRow(5).getCell(1).value).toBe("Enero");
+        expect(sheet.getRow(5).getCell(4).value).toBe("Cantidad - Sin Saldo Inicial en Kardex");
+        expect(sheet.getRow(5).getCell(5).value).toBe(50);
+        expect(sheet.getRow(5).getCell(6).value).toBe("Sin Saldo Inicial (TipoOp 16)");
+        expect(sheet.getRow(6).getCell(4).value).toBe("Costo Unitario - Sin Saldo Inicial en Kardex");
+        expect(sheet.getRow(6).getCell(5).value).toBe(1);
+        expect(sheet.getRow(7).getCell(4).value).toBe("Costo Total - Sin Saldo Inicial en Kardex");
+        expect(sheet.getRow(7).getCell(5).value).toBe(50);
+        expect(sheet.getRow(8).getCell(4).value).toBeFalsy();
+
+        const trace = String(sheet.getRow(5).getCell(10).value);
+        expect(trace).toContain("no tiene Saldo Inicial (TipoOp 16)");
+        expect(trace).toContain("Movimientos Kardex: 3");
+    });
 });

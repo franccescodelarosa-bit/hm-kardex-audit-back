@@ -35,14 +35,6 @@ export class Rule010Exporter extends BaseExcelExporter {
         this.writeTableHeader(worksheet);
         const findings = this.buildFindings(results);
         this.writeRows(worksheet, findings);
-        worksheet.views = [{
-            state: "frozen",
-            ySplit: 4
-        }];
-        worksheet.autoFilter = {
-            from: "A4",
-            to: "J4"
-        };
         return workbook;
     }
 

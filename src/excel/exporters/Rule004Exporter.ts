@@ -24,9 +24,10 @@ export interface Rule004Metadata {
     evaluatedProducts: Rule004EvaluatedProduct[];
     isIncident?: boolean;
     thresholdPercent?: number;
-    //no hay con que comparar
     noEvaluable?: boolean;
-    //por doc
+    registeredMonths?: number[];
+    differencePercent?: number;
+    rawWarehouseDate?: string | null;
     usedFallback?: boolean;
 }
 
@@ -42,9 +43,9 @@ interface Rule004Row {
     productDescription: string;
     inconsistencyType: string;
     expectedValue: number;
-    foundValue: number;
-    difference: number;
-    differencePercent: number;
+    foundValue: number | string;
+    difference: number | string;
+    differencePercent: number | null;
     riskLevel: string;
     traceability: string;
 }
@@ -64,80 +65,35 @@ export class Rule004Exporter extends BaseExcelExporter {
             header,
             "P"
         );
-        this.writeRule004TableHeader(worksheet);
+        this.writeTableHeader(worksheet, Rule004Exporter.LABELS);
         const findings = this.buildFindings(results);
         this.writeRule004Rows(worksheet, findings);
-        worksheet.views = [
-            {
-                state: "frozen",
-                ySplit: 4
-            }
-        ];
-        worksheet.autoFilter = {
-            from: "A4",
-            to: "P4"
-        };
         return workbook;
     }
 
-    private writeRule004TableHeader(worksheet: ExcelJS.Worksheet) {
-        worksheet.addRow([
-            "Periodo",
-            "Fecha de Emisión",
-            "Fecha de Ingreso a Almacén",
-            "RUC Proveedor",
-            "Proveedor",
-            "Documento",
-            "Documento Normalizado",
-            "Código del producto",
-            "Descripción del producto",
-            "Tipo de inconsistencia",
-            "Valor esperado",
-            "Valor encontrado",
-            "Diferencia",
-            "% Diferencia",
-            "Nivel de riesgo",
-            "Trazabilidad"
-        ]);
-        const headerRow = worksheet.getRow(4);
-        headerRow.font = { bold: true };
-        headerRow.alignment = { vertical: "middle", horizontal: "center" };
-        headerRow.eachCell(cell => {
-            cell.fill = {
-                type: "pattern",
-                pattern: "solid",
-                fgColor: { argb: "D9EAD3" }
-            };
-            cell.border = {
-                top: { style: "thin" },
-                left: { style: "thin" },
-                bottom: { style: "thin" },
-                right: { style: "thin" }
-            };
-        });
-        worksheet.columns = [
-            { width: 14 }, // Periodo
-            { width: 14 }, // Fecha Emisión
-            { width: 16 }, // Fecha Almacén
-            { width: 16 }, // RUC Proveedor
-            { width: 28 }, // Proveedor
-            { width: 20 }, // Documento
-            { width: 20 }, // Documento Normalizado
-            { width: 22 }, // Código del producto
-            { width: 40 }, // Descripción
-            { width: 30 }, // Tipo
-            { width: 18 }, // Esperado
-            { width: 18 }, // Encontrado
-            { width: 16 }, // Diferencia
-            { width: 14 }, // %
-            { width: 16 }, // Riesgo
-            { width: 50 }  // Trazabilidad
-        ];
-    }
+    private static readonly LABELS = [
+        "Periodo",
+        "Fecha de Emisión",
+        "Fecha de Ingreso a Almacén",
+        "RUC Proveedor",
+        "Proveedor",
+        "Documento",
+        "Documento Normalizado",
+        "Código del producto",
+        "Descripción del producto",
+        "Tipo de inconsistencia",
+        "Valor esperado",
+        "Valor encontrado",
+        "Diferencia",
+        "% Diferencia",
+        "Nivel de riesgo",
+        "Trazabilidad"
+    ];
 
     private writeRule004Rows(worksheet: ExcelJS.Worksheet, rows: Rule004Row[]) {
-        for (const row of rows) {
-            const excelRow = worksheet.addRow([
+        this.writeTableRows(
+            worksheet,
+            rows.map(row => [
                 row.period,
                 row.issueDate,
                 row.warehouseDate,
@@ -151,18 +107,13 @@ export class Rule004Exporter extends BaseExcelExporter {
                 row.expectedValue,
                 row.foundValue,
                 row.difference,
-                `${row.differencePercent.toFixed(2)} %`,
+                row.differencePercent === null
+                    ? "No aplicable"
+                    : `${row.differencePercent.toFixed(2)} %`,
                 row.riskLevel,
                 row.traceability
-            ]);
-            excelRow.eachCell(cell => {
-                cell.alignment = { vertical: "top" };
-            });
-            excelRow.getCell(16).alignment = {
-                wrapText: true,
-                vertical: "top"
-            };
-        }
+            ])
+        );
     }
 
     private buildFindings(results: any[]): Rule004Row[] {
@@ -173,10 +124,80 @@ export class Rule004Exporter extends BaseExcelExporter {
             const productosEncontrados = this.buildProductosEncontrados(metadata);
 
             const esValidacionDeCosto = metadata.isIncident !== undefined;
-            const noEvaluable = metadata.noEvaluable === true;
+            const otroMes =
+                result.error_type === "TRANSIT_REGISTERED_OTHER_MONTH" ||
+                metadata.noEvaluable === true;
+
+            // Las ACEPTADAS también se muestran (decisión del equipo).
+            const aceptada =
+                result.error_type === "ACCEPTED" ||
+                (esValidacionDeCosto && !metadata.isIncident && !otroMes);
+
+            const period = metadata.month ? DateUtils.monthName(Number(metadata.month)) : "Sin período";
+
+            if (otroMes) {
+                const mesesKardex = (metadata.registeredMonths ?? [])
+                    .map(month => DateUtils.monthName(month))
+                    .join(", ");
+
+                rows.push({
+                    period,
+                    issueDate: metadata.issueDate,
+                    warehouseDate: metadata.warehouseDate,
+                    supplierRuc: metadata.supplierRuc,
+                    supplier: metadata.supplier,
+                    document: metadata.document,
+                    normalizedDocument: metadata.normalizedDocument,
+                    productCode: "",
+                    productDescription: "",
+                    inconsistencyType: "Registrada en otro mes",
+                    expectedValue: metadata.expectedCost,
+                    foundValue: mesesKardex
+                        ? `Registrada en ${mesesKardex}`
+                        : "Registrada en otro mes",
+                    difference: "No aplicable",
+                    differencePercent: null,
+                    riskLevel: result.risk_level,
+                    traceability: [
+                        `Mes de ingreso al almacén: ${period}`,
+                        `Mes registrado en Kardex: ${mesesKardex || "otro mes"}`,
+                        "La factura existe en el Kardex, pero no en el mes de ingreso al almacén."
+                    ].join("\n")
+                });
+                continue;
+            }
+
+            if (result.error_type === "TRANSIT_INVALID_WAREHOUSE_DATE") {
+                rows.push({
+                    period,
+                    issueDate: metadata.issueDate,
+                    warehouseDate: metadata.warehouseDate,
+                    supplierRuc: metadata.supplierRuc,
+                    supplier: metadata.supplier,
+                    document: metadata.document,
+                    normalizedDocument: metadata.normalizedDocument,
+                    productCode: "",
+                    productDescription: "",
+                    inconsistencyType: "Fecha de ingreso inválida",
+                    expectedValue: metadata.expectedCost,
+                    foundValue: "No evaluado",
+                    difference: "No aplicable",
+                    differencePercent: null,
+                    riskLevel: result.risk_level,
+                    traceability: [
+                        `Fecha de ingreso recibida: ${metadata.rawWarehouseDate ?? "(vacía)"}`,
+                        "Sin una fecha válida no se puede saber el año ni el mes de ingreso al almacén.",
+                        "Corrija la fecha en el archivo de mercadería en tránsito."
+                    ].join("\n")
+                });
+                continue;
+            }
+
+            const documentoNoEncontrado =
+                !esValidacionDeCosto && !metadata.foundCost;
 
             rows.push({
-                period: metadata.month ? DateUtils.monthName(Number(metadata.month)) : "Sin período",
+                period,
                 issueDate: metadata.issueDate,
                 warehouseDate: metadata.warehouseDate,
                 supplierRuc: metadata.supplierRuc,
@@ -187,21 +208,24 @@ export class Rule004Exporter extends BaseExcelExporter {
                 productDescription: evaluatedProducts.map(p => p.description).join(", "),
                 inconsistencyType: !esValidacionDeCosto
                     ? "Mercadería en tránsito no registrada"
-                    : noEvaluable
-                        ? "Sin datos suficientes para evaluar el costo"
-                        : (metadata.isIncident ? "INCIDENCIA" : "ACEPTADA"),
+                    : aceptada ? "ACEPTADA" : "INCIDENCIA",
                 expectedValue: metadata.expectedCost,
-                foundValue: metadata.foundCost,
-                difference: metadata.expectedCost - metadata.foundCost,
-                differencePercent:
-                    metadata.expectedCost === 0
-                        ? 0
-                        : Math.abs(
-                            (
+                foundValue: documentoNoEncontrado
+                    ? "Documento no encontrado"
+                    : metadata.foundCost,
+                difference: documentoNoEncontrado
+                    ? "No aplicable"
+                    : metadata.expectedCost - metadata.foundCost,
+                differencePercent: documentoNoEncontrado
+                    ? null
+                    : metadata.differencePercent ?? (
+                        metadata.expectedCost === 0
+                            ? (metadata.foundCost === 0 ? 0 : 100)
+                            : Math.abs(
                                 (metadata.expectedCost - metadata.foundCost) /
                                 metadata.expectedCost
                             ) * 100
-                        ),
+                    ),
                 riskLevel: result.risk_level,
                 traceability: [
                     `Productos Encontrados: ${productosEncontrados}`,
@@ -210,7 +234,7 @@ export class Rule004Exporter extends BaseExcelExporter {
                         ? [
                             `Umbral permitido: ${metadata.thresholdPercent}%`,
                             `Fuente de búsqueda: ${metadata.usedFallback ? "Factura (todas sus líneas)" : "Factura, acotada a los Códigos Adquiridos"}`,
-                            `Resultado: ${noEvaluable ? "SIN DATOS PARA EVALUAR" : (metadata.isIncident ? "CONTINGENCIA" : "ACEPTADA")}`
+                            `Resultado: ${aceptada ? "ACEPTADA" : "CONTINGENCIA"}`
                         ]
                         : [])
                 ].join("\n")

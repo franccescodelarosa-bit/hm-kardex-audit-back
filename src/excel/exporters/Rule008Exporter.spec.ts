@@ -37,7 +37,7 @@ describe("Rule008Exporter", () => {
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
 
-        expect(sheet.getRow(5).getCell(1).value).toBe("Sin período");
+        expect(sheet.getRow(4).getCell(1).value).toBe("Sin período");
     });
 
     it("el otro camino de RULE_008 (validateKardex) SÍ trae month -- sigue mostrando el mes real, sin regresión", async () => {
@@ -54,7 +54,7 @@ describe("Rule008Exporter", () => {
         const workbook = await exporter.export(results, header);
         const sheet = workbook.worksheets[0];
 
-        expect(sheet.getRow(5).getCell(1).value).toBe("Marzo");
+        expect(sheet.getRow(4).getCell(1).value).toBe("Marzo");
     });
 
     it("AB4 (Kardex de enero, no en inventario): esperado = código, encontrado = 'Producto inexistente en el inventario'", async () => {
@@ -76,7 +76,7 @@ describe("Rule008Exporter", () => {
         ];
 
         const workbook = await exporter.export(results, header);
-        const row = workbook.worksheets[0].getRow(5);
+        const row = workbook.worksheets[0].getRow(4);
 
         expect(row.getCell(1).value).toBe("Enero");
         expect(row.getCell(4).value).toBe("Código del Kardex de enero no existe en el inventario de cierre");
@@ -103,7 +103,7 @@ describe("Rule008Exporter", () => {
         ];
 
         const workbook = await exporter.export(results, header);
-        const row = workbook.worksheets[0].getRow(5);
+        const row = workbook.worksheets[0].getRow(4);
 
         expect(row.getCell(4).value).toBe("Código del inventario de cierre no existe en el Kardex de enero");
         expect(row.getCell(5).value).toBe("28834");
